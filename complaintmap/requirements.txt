@@ -1,0 +1,9 @@
+streamlit
+folium
+streamlit-folium
+pandas
+numpy
+matplotlib
+python-dateutil
+requests
+geopy
