@@ -7,17 +7,20 @@ from config import DB_PATH
 
 
 def init_db():
+    """
+    Create the SQLite database and the `complaints` table if it does not already exist.
+    """
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS complaints (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT NOT NULL,
-            intensite INTEGER,
+            issue_type TEXT NOT NULL,
+            intensity INTEGER,
             lat REAL NOT NULL,
             lon REAL NOT NULL,
-            date_heure TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
             description TEXT,
             photo_path TEXT,
             votes INTEGER DEFAULT 0
@@ -29,35 +32,46 @@ def init_db():
 
 
 def get_connection():
+    """
+    Return a new SQLite connection.
+    """
     return sqlite3.connect(DB_PATH)
 
 
-def add_complaint(type_prob, intensite, lat, lon, description, photo_path):
+def add_complaint(issue_type, intensity, lat, lon, description, photo_path):
+    """
+    Insert a new complaint into the database.
+    """
     conn = get_connection()
     c = conn.cursor()
     c.execute(
         """
-        INSERT INTO complaints (type, intensite, lat, lon, date_heure, description, photo_path, votes)
+        INSERT INTO complaints (issue_type, intensity, lat, lon, timestamp, description, photo_path, votes)
         VALUES (?, ?, ?, ?, ?, ?, ?, 0)
         """,
-        (type_prob, intensite, lat, lon, datetime.now().isoformat(), description, photo_path),
+        (
+            issue_type,
+            intensity,
+            lat,
+            lon,
+            datetime.now().isoformat(),
+            description,
+            photo_path,
+        ),
     )
     conn.commit()
     conn.close()
 
 
 def load_complaints():
+    """
+    Load all complaints as a pandas DataFrame.
+    """
     conn = get_connection()
     df = pd.read_sql_query("SELECT * FROM complaints", conn)
     conn.close()
+
     if not df.empty:
-        df["date_heure"] = pd.to_datetime(df["date_heure"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+
     return df
-
-
-def update_votes(complaint_id, delta=1):
-    conn = get_connection()
-    c = conn.cursor()
-    c.execute("UPDATE complaints SET votes = votes + ? WHERE id = ?", (delta, complaint_id))
-    conn.commit()
-    conn.close()
