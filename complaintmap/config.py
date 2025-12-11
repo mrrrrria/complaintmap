@@ -1,12 +1,10 @@
 """
 config.py
-
-Fichier de configuration globale de l'application Smart Complaint Map.
-On centralise ici :
-- les chemins (base de données, uploads),
-- les constantes géographiques,
-- les couleurs / thème,
-- la configuration Streamlit (setup()).
+Global configuration file of the Smart Complaint Map.
+- paths (database, uploads)
+- geographic constants
+- colors/theme
+- Streamlit and open API configuration
 """
 
 import os
@@ -34,7 +32,6 @@ DEFAULT_LON = 4.5021
 # Niveau de zoom par défaut pour les cartes
 DEFAULT_ZOOM = 13
 
-
 # ---------------- COLORS ---------------- #
 
 # Main website colours : light green
@@ -44,24 +41,17 @@ PRIMARY_BORDER = "#b9e6ae"
 
 # Colours for cards and graphs
 COLOR_MAP = {
-    "Air": "#ff6961",            # rouge doux
-    "Bruit": "#5c7cfa",          # bleu
-    "Chaleur": "#ffa94d",        # orange
-    "Vélo / Piéton": "#51cf66",  # vert
-    "Odeur": "#9b5de5",          # violet
-    "Autre": "#6c757d",          # gris
+    "Air quality": "#ff6961",         # soft red
+    "Noise": "#5c7cfa",               # blue
+    "Heat": "#ffa94d",                # orange
+    "Cycling / Walking": "#51cf66",   # green
+    "Odor": "#9b5de5",                # purple
+    "Other": "#6c757d",               # grey
 }
-
 
 # ---------------- CONFIGURATION STREAMLIT ---------------- #
 
 def setup():
-    """
-    Configure Streamlit au démarrage de l'application.
-
-    - Définition du titre et de la mise en page
-    - Création du dossier d'uploads si besoin
-    """
     st.set_page_config(
         page_title="Smart Complaint Map",
         page_icon="🌱",
@@ -69,5 +59,4 @@ def setup():
         initial_sidebar_state="expanded",
     )
 
-    # S'assurer que le dossier des uploads existe
     os.makedirs(UPLOAD_DIR, exist_ok=True)
