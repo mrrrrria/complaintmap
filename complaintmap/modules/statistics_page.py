@@ -13,7 +13,7 @@ def render(df_all):
     # -----------------------------
     st.subheader("Complaint Types Distribution")
 
-    counts = df_all["type"].value_counts()
+    counts = df_all["issue_type"].value_counts()
     percentages = (counts / counts.sum() * 100).round(1)
 
     col_pie, col_info = st.columns([1.2, 1])
@@ -36,13 +36,13 @@ def render(df_all):
     # -----------------------------
     st.subheader("Filter by Complaint Type")
 
-    types = ["All"] + sorted(df_all["type"].unique())
+    types = ["All"] + sorted(df_all["issue_type"].unique())
     selected_type = st.selectbox("Select Complaint Type", types)
 
     if selected_type == "All":
         df_filtered = df_all.copy()
     else:
-        df_filtered = df_all[df_all["type"] == selected_type]
+        df_filtered = df_all[df_all["issue_type"] == selected_type]
 
     st.markdown("---")
 
@@ -52,9 +52,9 @@ def render(df_all):
     st.subheader(f"Number of Complaints ({selected_type})")
 
     # Prepare time columns
-    df_filtered["day"] = df_filtered["date_heure"].dt.day
-    df_filtered["month"] = df_filtered["date_heure"].dt.month
-    df_filtered["year"] = df_filtered["date_heure"].dt.year
+    df_filtered["day"] = df_filtered["timestamp"].dt.day
+    df_filtered["month"] = df_filtered["timestamp"].dt.month
+    df_filtered["year"] = df_filtered["timestamp"].dt.year
 
     col_d, col_m, col_y = st.columns(3)
 
@@ -109,9 +109,9 @@ def render(df_all):
     col_id, col_im, col_iy = st.columns(3)
 
     # Count intensities per day/month/year
-    counts_day_int = df_filtered.groupby(df_filtered["date_heure"].dt.date)["intensite"].value_counts().unstack(fill_value=0)
-    counts_month_int = df_filtered.groupby(df_filtered["date_heure"].dt.to_period("M"))["intensite"].value_counts().unstack(fill_value=0)
-    counts_year_int = df_filtered.groupby(df_filtered["date_heure"].dt.to_period("Y"))["intensite"].value_counts().unstack(fill_value=0)
+    counts_day_int = df_filtered.groupby(df_filtered["timestamp"].dt.date)["intensity"].value_counts().unstack(fill_value=0)
+    counts_month_int = df_filtered.groupby(df_filtered["timestamp"].dt.to_period("M"))["intensity"].value_counts().unstack(fill_value=0)
+    counts_year_int = df_filtered.groupby(df_filtered["timestamp"].dt.to_period("Y"))["intensity"].value_counts().unstack(fill_value=0)
 
     # Ensure columns 1–5 exist
     for df_group in [counts_day_int, counts_month_int, counts_year_int]:
