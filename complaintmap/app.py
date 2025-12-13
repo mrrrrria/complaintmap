@@ -301,7 +301,7 @@ def main():
         elif page_key == "air":
             air_heatmap_page.render()
         elif page_key == "solar":
-            solar_canopy.render()
+            solar_tool.render()
         elif page_key == "about":
             about_page.render()
         else:
