@@ -55,7 +55,7 @@ def suggest_tilt(lat):
 # --- Main Render Function ---
 
 def render():
-    st.title("☀️ Solar canopy — monthly target (Manual Yield)")
+    st.title("☀️ Solar tool ")
 
     # --- location
     if "lat" not in st.session_state:
@@ -72,7 +72,7 @@ def render():
     if 'yield_source' not in st.session_state:
         st.session_state.yield_source = "Default"
     
-    st.subheader("1) Location (France)")
+    st.subheader("1) Location (Lyon, France)")
     
     # --- ADDRESS SEARCH ---
     q = st.text_input("Search address (Please enter your location, results focused on Lyon, France.)", "")
