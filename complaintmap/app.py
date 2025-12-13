@@ -110,7 +110,7 @@ def render_banner():
 
 def render_report_home():
     """Main home page: interactive map on the left and reporting form on the right."""
-    st.subheader("🗺️ Report an issue on the map")
+    st.subheader("Report an issue on the map")
 
     df_all = load_complaints()
     clicked = st.session_state.get("clicked_location", None)
