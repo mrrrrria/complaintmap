@@ -65,34 +65,6 @@ def render():
         unsafe_allow_html=True,
     )
 
-    # -------- PROJECT AT A GLANCE --------
-    st.markdown(
-        "<div style='text-align:center; margin-top:6px; margin-bottom:6px;'><strong>📊 Project at a glance</strong></div>",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="metrics">
-            <div class="metric-card">
-                <div class="metric-label">Course</div>
-                <div class="metric-value">Smart Cities</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Issue Types</div>
-                <div class="metric-value">6 Categories</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Main Feature</div>
-                <div class="metric-value">Interactive Map</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<hr />", unsafe_allow_html=True)
-
     # -------- PURPOSE --------
     st.markdown(
         """
@@ -128,12 +100,12 @@ def render():
             <div class="title">Issue Categories</div>
             <div class="lead">Users can report issues under the following categories:</div>
             <br>
-            <span class="tag">🌫 Air Quality</span>
-            <span class="tag">🔊 Noise</span>
-            <span class="tag">🔥 Heat</span>
-            <span class="tag">🚶 Cycling / Walking</span>
-            <span class="tag">👃 Odor</span>
-            <span class="tag">📍 Other</span>
+            <span class="tag">Air Quality</span>
+            <span class="tag">Noise</span>
+            <span class="tag">Heat</span>
+            <span class="tag">Cycling / Walking</span>
+            <span class="tag">Odor</span>
+            <span class="tag">Other</span>
             <br><br>
             <div class="lead">
                 These categories help us organise reports and see patterns, such as streets that feel too hot,
