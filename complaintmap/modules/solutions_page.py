@@ -256,26 +256,25 @@ def render(df_all: pd.DataFrame):
     additional = generate_detailed_solutions(latest_row["issue"])
     additional_html = "".join([f"<li>{s}</li>" for s in additional])
 
-    st.markdown(
-        f"""
-        <div style="background:white; padding:20px; border-radius:12px;">
-            <div style="background:#f2f2f2; padding:12px;">
-                <b>Reported Issue:</b> {latest_row['issue']}<br>
-                <b>Intensity:</b> {latest_row['intensity']}
-            </div>
+   st.markdown(
+f"""<div style="background:white; padding:20px; border-radius:12px;">
+    <div style="background:#f2f2f2; padding:12px;">
+        <b>Reported Issue:</b> {latest_row['issue']}<br>
+        <b>Intensity:</b> {latest_row['intensity']}
+    </div>
 
-            <div style="margin-top:14px;">
-                <b>Primary Suggested Action:</b><br>
-                {primary_solution}
-            </div>
+    <div style="margin-top:14px;">
+        <b>Primary Suggested Action:</b><br>
+        {primary_solution}
+    </div>
 
-            <div style="margin-top:14px;">
-                <b>Additionally:</b>
-                <ul>
-                    {additional_html}
-                </ul>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    <div style="margin-top:14px;">
+        <b>Additionally:</b>
+        <ul>
+            {additional_html}
+        </ul>
+    </div>
+</div>""",
+unsafe_allow_html=True
+)
+    
