@@ -1,3 +1,5 @@
+import os
+st.write("SOLUTIONS PAGE FILE:", os.path.abspath(__file__))
 import streamlit as st
 import folium
 from folium.plugins import HeatMap
