@@ -3,13 +3,12 @@ import folium
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
 import pandas as pd
-# =========================================================
-# NORMALIZE ISSUE NAMES
-# =========================================================
+
 def normalize_issue(value):
     if not isinstance(value, str):
         return "Other"
     v = value.strip().lower()
+    # Normalising the names to eliminate possible errors related to name,as previously we worked on french
     mapping = {
         "air": "Air",
         "noise": "Noise",
@@ -19,17 +18,13 @@ def normalize_issue(value):
         "odor": "Odour",
         "odeur": "Odour",
         "water": "Water",
-        "flood": "Water",
         "cycling / walking": "Cycling / Walking",
-        "cycling": "Cycling / Walking",
         "walking": "Cycling / Walking",
         "other": "Other"
     }
     return mapping.get(v, value.capitalize())
-
-# =========================================================
-# SHORT SOLUTION (MAP POPUP – SIMPLE & VARIED)
-# =========================================================
+    
+# Simple short solutions
 def generate_solution(issue, intensity, variant):
     intensity = int(intensity)
 
@@ -140,11 +135,9 @@ def generate_solution(issue, intensity, variant):
 
     options = SOLUTIONS.get(issue, SOLUTIONS["Other"])[tier]
     return options[variant % len(options)]
+    
+ #More detailed solutions to display at bottom of the page
 
-
-# =========================================================
-# DETAILED MULTI-SOLUTION (BOTTOM SECTION)
-# =========================================================
 def generate_detailed_solutions(issue, intensity):
     intensity = int(intensity)
 
@@ -195,10 +188,8 @@ def generate_detailed_solutions(issue, intensity):
         "Conduct further assessment."
     ]
 
+#Render function
 
-# =========================================================
-# MAIN RENDER FUNCTION
-# =========================================================
 def render(df_all: pd.DataFrame):
 
     st.title("Smart Complaint Solution Map")
@@ -240,7 +231,7 @@ def render(df_all: pd.DataFrame):
 
     HeatMap(grouped[["lat", "lon"]].values.tolist(), radius=25, blur=18).add_to(m)
 
-    # ---------------- MAP MARKERS ----------------
+#Markers used for the map, fonts and styles of descriptive solution part
     for i, row in grouped.iterrows():
         popup_solution = generate_solution(row["issue"], row["intensity"], i)
         color = "red" if row["timestamp"] == latest_row["timestamp"] else "blue"
@@ -280,8 +271,8 @@ def render(df_all: pd.DataFrame):
         ).add_to(m)
 
     st_folium(m, width=1400, height=650)
-
-    # ---------------- BOTTOM SECTION ----------------
+    
+#Detailed solution part located at bottom of the page
     st.subheader("📌 Current Reported Solutions")
 
     detailed = generate_detailed_solutions(
