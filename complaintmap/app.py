@@ -261,7 +261,7 @@ def main():
     apply_global_style()
     render_banner()
 
-    # ---------------- SIDEBAR NAVIGATION ---------------- #
+    # sidebar
     st.sidebar.markdown("## 🌿 Menu")
 
     pages = {
