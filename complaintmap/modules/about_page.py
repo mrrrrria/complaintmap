@@ -1,7 +1,6 @@
 import streamlit as st
 
 def render():
-    # Keep your CSS exactly as before
     st.markdown(
         """
         <style>
@@ -43,7 +42,7 @@ def render():
 
     st.header("ℹ️ About the Project")
 
-    # -------- PROJECT OVERVIEW --------
+    # Overview
     st.markdown(
         """
         <div class="section">
@@ -54,7 +53,7 @@ def render():
                 <br><br>
                 The idea behind the project is simple: we wanted to build an 
                 <strong>interactive map</strong> where people can share everyday 
-                problems they notice in the city — things like noise, heat, smell,
+                problems they notice in the city, things like noise, heat, smell,
                 or unsafe walking and cycling routes.
                 <br><br>
                 Our goal is to show how citizen feedback can help us understand what
@@ -65,7 +64,7 @@ def render():
         unsafe_allow_html=True,
     )
 
-    # -------- PURPOSE --------
+    # Purpose
     st.markdown(
         """
         <div class="section">
@@ -93,7 +92,7 @@ def render():
         unsafe_allow_html=True,
     )
 
-    # -------- ISSUE CATEGORIES --------
+    # Categories for complaint issues
     st.markdown(
         """
         <div class="section">
@@ -116,7 +115,7 @@ def render():
         unsafe_allow_html=True,
     )
 
-    # -------- TECHNOLOGIES --------
+    # Technologies used
     st.markdown(
         """
         <div class="section">
@@ -138,7 +137,7 @@ def render():
         unsafe_allow_html=True,
     )
 
-    # -------- EXPANDER --------
+    # expander
     with st.expander("Data & Map Details"):
         st.write(
             """
@@ -151,16 +150,16 @@ def render():
 
     st.markdown("<hr />", unsafe_allow_html=True)
 
-    # -------- CTA --------
+    # cta
     st.markdown(
         """
         <div style="text-align:center; margin-top:14px;">
-            <a href="#report" class="cta">🗺 Go to the Map & Report an Issue</a>
+            <a href="#report" class="cta"> Go to the Map & Report an Issue</a>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown('<p class="footer">© Sapienza University of Rome — Smart Cities Course</p>', unsafe_allow_html=True)
+    st.markdown('<p class="footer">© Sapienza University of Rome | Smart Cities Course</p>', unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
