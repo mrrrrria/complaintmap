@@ -32,107 +32,106 @@ def normalize_issue(value):
 
 
 # =========================================================
-# PREDEFINED, INTENSITY-BASED SOLUTION ENGINE
+# SHORT SOLUTION (FOR MAP POPUPS – VARIATION TO AVOID REPEAT)
 # =========================================================
 def generate_solution(issue, intensity, variant):
     intensity = int(intensity)
 
     SOLUTIONS = {
-
         "Air": {
             "low": [
-                "Monitor local air quality and inform residents about pollution levels.",
-                "Promote awareness campaigns to reduce air pollution."
+                "Monitor air quality and raise awareness.",
+                "Encourage low-impact mobility choices."
             ],
             "medium": [
-                "Encourage reduced vehicle use and promote public transport.",
-                "Support cleaner mobility options such as cycling and car sharing."
+                "Reduce car usage and promote public transport.",
+                "Increase urban greenery in the area."
             ],
             "high": [
-                "Restrict high-emission vehicles in the affected area.",
-                "Create low-emission zones and increase urban greenery."
+                "Restrict high-emission vehicles.",
+                "Create low-emission zones."
             ]
         },
 
         "Heat": {
             "low": [
-                "Increase shaded areas and raise heat awareness.",
-                "Encourage the use of shaded pedestrian routes."
+                "Increase shaded areas.",
+                "Promote heat awareness."
             ],
             "medium": [
-                "Install shaded seating and expand tree coverage.",
-                "Improve access to cooling spaces in public areas."
+                "Install shaded seating.",
+                "Expand tree coverage."
             ],
             "high": [
-                "Apply cool-surface technologies on roads and buildings.",
-                "Redesign public spaces to reduce heat accumulation."
+                "Apply cool-surface technologies.",
+                "Redesign public spaces to reduce heat."
             ]
         },
 
         "Noise": {
             "low": [
-                "Monitor noise levels and remind residents of regulations.",
-                "Increase public awareness about noise pollution."
+                "Monitor noise levels.",
+                "Reinforce noise regulations."
             ],
             "medium": [
-                "Introduce traffic calming measures in affected streets.",
-                "Adjust traffic flow to reduce noise exposure."
+                "Introduce traffic calming.",
+                "Adjust local traffic flow."
             ],
             "high": [
-                "Install noise barriers near major roads.",
-                "Restrict heavy vehicle traffic during sensitive hours."
+                "Install noise barriers.",
+                "Restrict heavy vehicle traffic."
             ]
         },
 
         "Odour": {
             "low": [
-                "Inspect sanitation conditions and cleaning schedules.",
-                "Increase monitoring of waste collection practices."
+                "Inspect sanitation conditions.",
+                "Increase cleaning frequency."
             ],
             "medium": [
-                "Improve waste collection frequency and sanitation services.",
-                "Identify and address local odor sources."
+                "Improve waste collection.",
+                "Identify odor sources."
             ],
             "high": [
-                "Upgrade waste treatment infrastructure.",
-                "Enforce environmental regulations on odor-producing activities."
+                "Upgrade waste treatment.",
+                "Enforce environmental regulations."
             ]
         },
 
         "Water": {
             "low": [
-                "Inspect drainage systems and monitor water accumulation.",
-                "Ensure drains are clear and functioning properly."
+                "Inspect drainage systems.",
+                "Monitor water accumulation."
             ],
             "medium": [
-                "Clean and maintain local drainage infrastructure.",
-                "Address recurring water pooling in the area."
+                "Clean and maintain drainage.",
+                "Address recurring pooling."
             ],
             "high": [
-                "Upgrade drainage systems and implement flood mitigation measures.",
-                "Restrict access to flooded areas and plan infrastructure improvements."
+                "Upgrade drainage infrastructure.",
+                "Implement flood mitigation."
             ]
         },
 
         "Cycling / Walking": {
             "low": [
-                "Improve signage and visibility for pedestrians and cyclists.",
-                "Repair minor surface issues on sidewalks and paths."
+                "Improve signage.",
+                "Repair minor surface issues."
             ],
             "medium": [
-                "Improve crossings and shared-space safety.",
-                "Enhance separation between pedestrians and vehicles."
+                "Improve crossings.",
+                "Enhance user separation."
             ],
             "high": [
                 "Build dedicated cycling lanes.",
-                "Redesign intersections to improve pedestrian safety."
+                "Redesign intersections."
             ]
         },
 
         "Other": {
-            "low": ["Monitor the situation and collect additional reports."],
-            "medium": ["Conduct a local assessment of the reported issue."],
-            "high": ["Plan infrastructure-level intervention with authorities."]
+            "low": ["Monitor the situation."],
+            "medium": ["Conduct a local assessment."],
+            "high": ["Plan infrastructure-level intervention."]
         }
     }
 
@@ -143,10 +142,134 @@ def generate_solution(issue, intensity, variant):
     else:
         tier = "high"
 
-    issue_solutions = SOLUTIONS.get(issue, SOLUTIONS["Other"])
-    tier_solutions = issue_solutions[tier]
+    options = SOLUTIONS.get(issue, SOLUTIONS["Other"])[tier]
+    return options[variant % len(options)]
 
-    return tier_solutions[variant % len(tier_solutions)]
+
+# =========================================================
+# DETAILED MULTI-SOLUTION (FOR BOTTOM SECTION)
+# =========================================================
+def generate_detailed_solutions(issue, intensity):
+    intensity = int(intensity)
+
+    if issue == "Air":
+        if intensity <= 2:
+            return [
+                "Monitor air quality levels to identify recurring pollution patterns.",
+                "Encourage residents to adopt low-impact mobility options."
+            ]
+        elif intensity == 3:
+            return [
+                "Promote reduced car usage through local mobility initiatives.",
+                "Increase vegetation and green buffers to absorb pollutants.",
+                "Support cleaner transport alternatives."
+            ]
+        else:
+            return [
+                "Restrict high-emission vehicles in the affected area.",
+                "Establish low-emission zones.",
+                "Implement long-term urban greening strategies."
+            ]
+
+    elif issue == "Heat":
+        if intensity <= 2:
+            return [
+                "Increase shaded areas using vegetation or temporary structures.",
+                "Improve access to drinking water and resting areas."
+            ]
+        elif intensity == 3:
+            return [
+                "Install shaded seating in public spaces.",
+                "Expand tree planting and green areas.",
+                "Improve cooling infrastructure."
+            ]
+        else:
+            return [
+                "Apply cool-roof and cool-pavement technologies.",
+                "Redesign public spaces to reduce heat accumulation.",
+                "Integrate long-term climate adaptation measures."
+            ]
+
+    elif issue == "Noise":
+        if intensity <= 2:
+            return [
+                "Monitor noise levels and identify peak disturbance periods.",
+                "Reinforce existing noise regulations."
+            ]
+        elif intensity == 3:
+            return [
+                "Introduce traffic calming measures.",
+                "Adjust traffic flow to reduce noise exposure.",
+                "Enforce time-based noise restrictions."
+            ]
+        else:
+            return [
+                "Install noise barriers near major noise sources.",
+                "Restrict heavy vehicle traffic during sensitive hours.",
+                "Redesign road layouts to limit noise propagation."
+            ]
+
+    elif issue == "Odour":
+        if intensity <= 2:
+            return [
+                "Inspect sanitation conditions and cleaning schedules.",
+                "Increase monitoring of waste collection."
+            ]
+        elif intensity == 3:
+            return [
+                "Improve waste collection frequency.",
+                "Identify and address odor sources.",
+                "Enhance sanitation services."
+            ]
+        else:
+            return [
+                "Upgrade waste treatment infrastructure.",
+                "Enforce environmental regulations.",
+                "Implement long-term odor mitigation measures."
+            ]
+
+    elif issue == "Water":
+        if intensity <= 2:
+            return [
+                "Inspect drainage systems for blockages.",
+                "Monitor water accumulation after rainfall."
+            ]
+        elif intensity == 3:
+            return [
+                "Clean and maintain drainage infrastructure.",
+                "Address recurring water pooling.",
+                "Improve surface runoff management."
+            ]
+        else:
+            return [
+                "Upgrade drainage systems for heavy rainfall.",
+                "Implement flood mitigation measures.",
+                "Restrict access to affected areas during flooding."
+            ]
+
+    elif issue == "Cycling / Walking":
+        if intensity <= 2:
+            return [
+                "Improve signage and visibility.",
+                "Repair minor surface defects."
+            ]
+        elif intensity == 3:
+            return [
+                "Improve pedestrian crossings.",
+                "Enhance separation between users.",
+                "Introduce traffic calming."
+            ]
+        else:
+            return [
+                "Build dedicated cycling lanes.",
+                "Redesign intersections for safety.",
+                "Reduce vehicle speeds in shared areas."
+            ]
+
+    return [
+        "Collect additional reports.",
+        "Conduct further assessment of the issue."
+    ]
 
 
 # =========================================================
@@ -154,7 +277,7 @@ def generate_solution(issue, intensity, variant):
 # =========================================================
 def render(df_all: pd.DataFrame):
 
-    st.title("Smart Complaint Solution Map")
+    st.title("🗺️ Smart Complaint Solution Map")
     st.markdown(
         "<h4 style='color: gray; margin-top:-10px;'>Proposed Solutions</h4>",
         unsafe_allow_html=True
@@ -166,9 +289,7 @@ def render(df_all: pd.DataFrame):
 
     df = df_all.copy()
 
-    # --------------------------------------------------
-    # REQUIRED COLUMNS (MATCH YOUR DATABASE)
-    # --------------------------------------------------
+    # REQUIRED COLUMNS
     required_cols = ["issue_type", "intensity", "lat", "lon", "timestamp"]
     for col in required_cols:
         if col not in df.columns:
@@ -176,15 +297,11 @@ def render(df_all: pd.DataFrame):
             st.write("Available columns:", df.columns.tolist())
             return
 
-    # --------------------------------------------------
     # NORMALIZE DATA
-    # --------------------------------------------------
     df["issue"] = df["issue_type"].apply(normalize_issue)
     df["intensity"] = df["intensity"].fillna(1).astype(int)
 
-    # --------------------------------------------------
     # ISSUE FILTER
-    # --------------------------------------------------
     issues = ["All"] + sorted(df["issue"].unique().tolist())
     selected_issue = st.selectbox("Reported Issue", issues)
 
@@ -195,50 +312,29 @@ def render(df_all: pd.DataFrame):
         st.info("No complaints found for this issue.")
         return
 
-    # --------------------------------------------------
-    # GROUP BY LOCATION (LATEST PER LOCATION & ISSUE)
-    # --------------------------------------------------
+    # GROUP DATA
     df_sorted = df.sort_values("timestamp")
-
-    grouped = (
-        df_sorted
-        .groupby(["lat", "lon", "issue"], as_index=False)
-        .last()
-    )
-
+    grouped = df_sorted.groupby(["lat", "lon", "issue"], as_index=False).last()
     latest_row = grouped.loc[grouped["timestamp"].idxmax()]
 
-    # --------------------------------------------------
-    # MAP INITIALIZATION
-    # --------------------------------------------------
+    # MAP
     m = folium.Map(
         location=[latest_row["lat"], latest_row["lon"]],
         zoom_start=14
     )
 
-    HeatMap(
-        grouped[["lat", "lon"]].values.tolist(),
-        radius=25,
-        blur=18
-    ).add_to(m)
+    HeatMap(grouped[["lat", "lon"]].values.tolist(), radius=25, blur=18).add_to(m)
 
-    # --------------------------------------------------
-    # MARKERS
-    # --------------------------------------------------
     for i, row in grouped.iterrows():
-        solution = generate_solution(row["issue"], row["intensity"], i)
+        popup_solution = generate_solution(row["issue"], row["intensity"], i)
         color = "red" if row["timestamp"] == latest_row["timestamp"] else "blue"
 
         popup_html = f"""
-        <div style="width:330px; font-family:Arial;">
-            <div style="background:#f2f2f2; padding:12px;">
-                <b>Reported Issue:</b> {row['issue']}<br>
-                <b>Intensity:</b> {row['intensity']}
-            </div>
-            <div style="background:white; padding:14px;">
-                <b>Proposed Solution:</b><br><br>
-                {solution}
-            </div>
+        <div style="width:300px;">
+            <b>Reported Issue:</b> {row['issue']}<br>
+            <b>Intensity:</b> {row['intensity']}<br><br>
+            <b>Proposed Solution:</b><br>
+            {popup_solution}
         </div>
         """
 
@@ -250,16 +346,15 @@ def render(df_all: pd.DataFrame):
 
     st_folium(m, width=1400, height=650)
 
-    # --------------------------------------------------
-    # CURRENT SOLUTION BELOW MAP
-    # --------------------------------------------------
-    st.subheader("📌 Current Reported Solution")
+    # BOTTOM DETAILED SOLUTIONS
+    st.subheader("📌 Current Reported Solutions")
 
-    current_solution = generate_solution(
+    detailed = generate_detailed_solutions(
         latest_row["issue"],
-        latest_row["intensity"],
-        0
+        latest_row["intensity"]
     )
+
+    solutions_html = "".join([f"<li>{s}</li>" for s in detailed])
 
     st.markdown(
         f"""
@@ -269,8 +364,10 @@ def render(df_all: pd.DataFrame):
                 <b>Intensity:</b> {latest_row['intensity']}
             </div>
             <div style="margin-top:12px;">
-                <b>Recommended Solution:</b><br><br>
-                {current_solution}
+                <b>Recommended Actions:</b>
+                <ul>
+                    {solutions_html}
+                </ul>
             </div>
         </div>
         """,
