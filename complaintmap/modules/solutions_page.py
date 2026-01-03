@@ -6,109 +6,102 @@ import pandas as pd
 
 
 # =========================================================
-# COLUMN AUTO-DETECTION (ROBUST)
+# COLUMN DETECTION (ROBUST & SAFE)
 # =========================================================
-def detect_column(df, possible_names):
-    for col in possible_names:
-        if col in df.columns:
-            return col
+def detect_column(df, names):
+    for name in names:
+        if name in df.columns:
+            return name
     return None
 
 
 # =========================================================
-# NORMALIZE ISSUE NAMES (FRENCH → ENGLISH)
+# ISSUE NORMALIZATION (FRENCH → ENGLISH)
 # =========================================================
-def normalize_issue(raw_type):
-    if not isinstance(raw_type, str):
+def normalize_issue(value):
+    if not isinstance(value, str):
         return "Other"
 
-    t = raw_type.strip().lower()
-    if t == "air":
+    v = value.strip().lower()
+    if v == "air":
         return "Air"
-    if t == "chaleur":
+    if v == "chaleur":
         return "Heat"
-    if t == "bruit":
+    if v == "bruit":
         return "Noise"
-    if t == "odeur":
+    if v == "odeur":
         return "Odour"
 
-    return raw_type.capitalize()
+    return value.capitalize()
 
 
 # =========================================================
-# SOLUTION GENERATION LOGIC
+# SOLUTION LOGIC
 # =========================================================
-def get_solution(issue, intensity, variant_index):
+def get_solution(issue, intensity, variant):
     intensity = int(intensity)
 
     if issue == "Air":
-        solutions = (
+        options = (
             [
                 "Monitor air quality regularly and inform residents about pollution levels.",
                 "Encourage reduced car usage and promote public transport or cycling."
-            ]
-            if intensity <= 3 else
-            [
+            ] if intensity <= 3 else [
                 "Restrict high-emission vehicles in the affected area during peak hours.",
-                "Create urban green buffer zones to help absorb air pollutants.",
+                "Create urban green buffers to help absorb air pollutants.",
                 "Introduce low-emission or electric-vehicle priority zones."
             ]
         )
 
     elif issue == "Heat":
-        solutions = (
+        options = (
             [
-                "Increase tree planting and shaded areas to reduce local heat exposure.",
+                "Increase tree planting and shaded areas to reduce heat exposure.",
                 "Install shaded public seating and pedestrian shelters."
-            ]
-            if intensity <= 3 else
-            [
-                "Apply cool-roof technologies to reduce indoor and outdoor temperatures.",
-                "Use heat-reflective materials for pavements and road surfaces.",
-                "Redesign public spaces to improve airflow and reduce heat accumulation."
+            ] if intensity <= 3 else [
+                "Apply cool-roof technologies to reduce temperatures.",
+                "Use heat-reflective materials on roads and pavements.",
+                "Redesign public spaces to improve airflow."
             ]
         )
 
     elif issue == "Noise":
-        solutions = (
+        options = (
             [
-                "Increase monitoring of noise levels and enforce existing regulations.",
-                "Raise public awareness about noise pollution and its impacts."
-            ]
-            if intensity <= 3 else
-            [
-                "Install noise barriers along major roads or sensitive areas.",
-                "Restrict heavy vehicle traffic during night-time hours.",
-                "Implement speed limits and traffic calming measures."
+                "Increase monitoring of noise levels and enforce regulations.",
+                "Raise public awareness about noise pollution."
+            ] if intensity <= 3 else [
+                "Install noise barriers along major roads.",
+                "Restrict heavy vehicle traffic during night hours.",
+                "Implement traffic calming and speed limits."
             ]
         )
 
     elif issue == "Odour":
-        solutions = (
+        options = (
             [
-                "Inspect waste collection and sanitation practices in the area.",
-                "Ensure regular cleaning and maintenance of nearby facilities."
-            ]
-            if intensity <= 3 else
-            [
-                "Improve waste management systems and enforce disposal regulations.",
-                "Install odor treatment or filtering systems near the source."
+                "Inspect sanitation and waste collection practices.",
+                "Ensure regular cleaning and maintenance."
+            ] if intensity <= 3 else [
+                "Improve waste management systems.",
+                "Install odor treatment systems near the source."
             ]
         )
 
     else:
-        solutions = ["Further assessment and monitoring of the reported issue is recommended."]
+        options = ["Further monitoring and assessment are recommended."]
 
-    return solutions[variant_index % len(solutions)]
+    return options[variant % len(options)]
 
 
 # =========================================================
-# MAIN RENDER FUNCTION
+# MAIN PAGE RENDER
 # =========================================================
 def render(df_all: pd.DataFrame):
+
     st.title("🗺️ Smart Complaint Solution Map")
     st.markdown(
-        "<h4 style='color: gray; margin-top: -10px;'>Proposed Solutions</h4>",
+        "<h4 style='color:gray; margin-top:-10px;'>Proposed Solutions</h4>",
         unsafe_allow_html=True
     )
 
@@ -128,7 +121,7 @@ def render(df_all: pd.DataFrame):
     date_col = detect_column(df, ["date_heure", "date", "timestamp"])
 
     if not all([issue_col, lat_col, lon_col, intensity_col, date_col]):
-        st.error("Required columns not found in the complaint data.")
+        st.error("Required columns are missing in the dataset.")
         st.write("Available columns:", df.columns.tolist())
         return
 
@@ -136,23 +129,25 @@ def render(df_all: pd.DataFrame):
     # NORMALIZE DATA
     # --------------------------------------------------
     df["issue"] = df[issue_col].apply(normalize_issue)
-    df["intensity"] = df[intensity_col].apply(lambda x: int(x) if int(x) > 0 else 1)
+    df["intensity"] = df[intensity_col].apply(
+        lambda x: int(x) if pd.notna(x) and int(x) > 0 else 1
+    )
 
     # --------------------------------------------------
     # ISSUE FILTER
     # --------------------------------------------------
-    issue_list = ["All"] + sorted(df["issue"].unique().tolist())
-    selected_issue = st.selectbox("Reported Issue", issue_list)
+    issues = ["All"] + sorted(df["issue"].unique())
+    selected_issue = st.selectbox("Reported Issue", issues)
 
     if selected_issue != "All":
         df = df[df["issue"] == selected_issue]
 
     if df.empty:
-        st.info("No complaints found for the selected issue.")
+        st.info("No complaints for selected issue.")
         return
 
     # --------------------------------------------------
-    # GROUP DATA (LATEST PER LOCATION & ISSUE)
+    # GROUP BY LOCATION & ISSUE (LATEST)
     # --------------------------------------------------
     df_sorted = df.sort_values(date_col)
 
@@ -166,7 +161,7 @@ def render(df_all: pd.DataFrame):
     latest_row = grouped.loc[grouped[date_col].idxmax()]
 
     # --------------------------------------------------
-    # MAP INITIALIZATION
+    # MAP
     # --------------------------------------------------
     m = folium.Map(
         location=[latest_row[lat_col], latest_row[lon_col]],
@@ -180,14 +175,14 @@ def render(df_all: pd.DataFrame):
     ).add_to(m)
 
     # --------------------------------------------------
-    # ADD MARKERS
+    # MARKERS
     # --------------------------------------------------
-    for idx, row in grouped.iterrows():
-        solution = get_solution(row["issue"], row["intensity"], idx)
-        marker_color = "red" if row[date_col] == latest_time else "blue"
+    for i, row in grouped.iterrows():
+        solution = get_solution(row["issue"], row["intensity"], i)
+        color = "red" if row[date_col] == latest_time else "blue"
 
-        popup_html = f"""
-        <div style="width:330px; font-family:Arial; border-radius:12px; overflow:hidden;">
+        popup = f"""
+        <div style="width:320px; font-family:Arial;">
             <div style="background:#f2f2f2; padding:12px;">
                 <b>Reported Issue:</b> {row['issue']}<br>
                 <b>Intensity:</b> {row['intensity']}
@@ -201,14 +196,14 @@ def render(df_all: pd.DataFrame):
 
         folium.Marker(
             location=[row[lat_col], row[lon_col]],
-            popup=popup_html,
-            icon=folium.Icon(color=marker_color, icon="info-sign")
+            popup=popup,
+            icon=folium.Icon(color=color, icon="info-sign")
         ).add_to(m)
 
     st_folium(m, width=1400, height=650)
 
     # --------------------------------------------------
-    # CURRENT REPORTED SOLUTION (BELOW MAP)
+    # CURRENT SOLUTION BELOW MAP
     # --------------------------------------------------
     st.subheader("📌 Current Reported Solution")
 
@@ -221,7 +216,7 @@ def render(df_all: pd.DataFrame):
     st.markdown(
         f"""
         <div style="background:#ffffff; padding:20px; border-radius:12px;
-                    box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-top:10px;">
+                    box-shadow:0 2px 8px rgba(0,0,0,0.1);">
             <div style="background:#f2f2f2; padding:12px; border-radius:8px;">
                 <b>Reported Issue:</b> {latest_row['issue']}<br>
                 <b>Intensity:</b> {latest_row['intensity']}
