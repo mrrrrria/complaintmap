@@ -11,6 +11,7 @@ def normalize_issue(value):
 
     v = value.strip().lower()
 
+    # Normalising the names to eliminate possible errors related to naming
     if "air" in v or "pollution" in v:
         return "Air"
     if "noise" in v or "bruit" in v:
@@ -27,7 +28,7 @@ def normalize_issue(value):
     return value.capitalize()
 
 
-# Short solutions shown on map popups
+# Simple short solutions shown on the map
 def generate_solution(issue, intensity, variant):
     intensity = int(intensity)
 
@@ -134,7 +135,7 @@ def generate_solution(issue, intensity, variant):
     return options[variant % len(options)]
 
 
-# Additional solutions shown at bottom
+# Additional solutions shown at the bottom
 def generate_detailed_solutions(issue):
     if issue == "Air":
         return [
@@ -242,9 +243,9 @@ def render(df_all: pd.DataFrame):
 
     st.markdown(
 f"""<div style="background:white; padding:20px; border-radius:12px;">
-    <div style="background:#f2f2f2; padding:12px;">
-        <b>Reported Issue:</b> {latest_row['issue']}<br>
-        <b>Intensity:</b> {latest_row['intensity']}
+    <div style="background:#f2f2f2; padding:12px; font-weight:600;">
+        Reported Issue: {latest_row['issue']}<br>
+        Intensity: {latest_row['intensity']}
     </div>
 
     <div style="margin-top:14px;">
