@@ -4,31 +4,14 @@ from folium.plugins import HeatMap
 from streamlit_folium import st_folium
 import pandas as pd
 
-def normalize_issue(value):
-    if not isinstance(value, str):
-        return "Other"
-    v = value.strip().lower()
-    # Normalising the names to eliminate possible errors related to name,as previously we worked on french
-    mapping = {
-        "air": "Air",
-        "noise": "Noise",
-        "bruit": "Noise",
-        "heat": "Heat",
-        "chaleur": "Heat",
-        "odor": "Odour",
-        "odeur": "Odour",
-        "water": "Water",
-        "cycling / walking": "Cycling / Walking",
-        "walking": "Cycling / Walking",
-        "other": "Other"
-    }
-    return mapping.get(v, value.capitalize())
+
 def normalize_issue(value):
     if not isinstance(value, str):
         return "Other"
 
     v = value.strip().lower()
 
+    # Normalising the names to eliminate possible errors related to naming
     if "air" in v or "pollution" in v:
         return "Air"
     if "noise" in v or "bruit" in v:
@@ -42,9 +25,10 @@ def normalize_issue(value):
     if "cycling" in v or "walking" in v or "pedestrian" in v:
         return "Cycling / Walking"
 
-    return "Other"
-    
-# Simple short solutions
+    return value.capitalize()
+
+
+# Simple short solutions shown on the map
 def generate_solution(issue, intensity, variant):
     intensity = int(intensity)
 
@@ -155,61 +139,50 @@ def generate_solution(issue, intensity, variant):
 
     options = SOLUTIONS.get(issue, SOLUTIONS["Other"])[tier]
     return options[variant % len(options)]
-    
- #More detailed solutions to display at bottom of the page
 
-def generate_detailed_solutions(issue, intensity):
-    intensity = int(intensity)
 
+# More detailed solutions displayed at the bottom of the page
+def generate_detailed_solutions(issue):
     if issue == "Air":
         return [
-            "Monitor air quality levels to identify recurring pollution patterns.",
             "Encourage residents to adopt low-impact mobility options.",
             "Promote long-term urban greening strategies."
         ]
 
     if issue == "Heat":
         return [
-            "Increase shaded areas and access to cooling spaces.",
             "Expand tree planting and green infrastructure.",
             "Apply heat-mitigation materials in public spaces."
         ]
 
     if issue == "Noise":
         return [
-            "Monitor noise levels and identify peak disturbance periods.",
             "Introduce traffic calming measures.",
             "Restrict heavy vehicle traffic during sensitive hours."
         ]
 
     if issue == "Odour":
         return [
-            "Inspect sanitation conditions and waste management practices.",
             "Improve waste collection frequency.",
             "Enforce environmental standards on odor sources."
         ]
 
     if issue == "Water":
         return [
-            "Inspect and maintain drainage systems.",
             "Address recurring water accumulation areas.",
-            "Implement flood mitigation and infrastructure upgrades."
+            "Implement flood mitigation strategies."
         ]
 
     if issue == "Cycling / Walking":
         return [
-            "Improve pedestrian and cyclist visibility.",
             "Enhance road safety through better crossings.",
             "Develop dedicated and protected mobility lanes."
         ]
 
-    return [
-        "Collect additional reports.",
-        "Conduct further assessment."
-    ]
+    return []
 
-#Render function
 
+# Render function
 def render(df_all: pd.DataFrame):
 
     st.title("Smart Complaint Solution Map")
@@ -234,12 +207,6 @@ def render(df_all: pd.DataFrame):
     df["issue"] = df["issue_type"].apply(normalize_issue)
     df["intensity"] = df["intensity"].fillna(1).astype(int)
 
-    issues = ["All"] + sorted(df["issue"].unique())
-    selected_issue = st.selectbox("Reported Issue", issues)
-
-    if selected_issue != "All":
-        df = df[df["issue"] == selected_issue]
-
     df_sorted = df.sort_values("timestamp")
     grouped = df_sorted.groupby(["lat", "lon", "issue"], as_index=False).last()
     latest_row = grouped.loc[grouped["timestamp"].idxmax()]
@@ -251,33 +218,18 @@ def render(df_all: pd.DataFrame):
 
     HeatMap(grouped[["lat", "lon"]].values.tolist(), radius=25, blur=18).add_to(m)
 
-#Markers used for the map, fonts and styles of descriptive solution part
+    # Markers and popup styling
     for i, row in grouped.iterrows():
         popup_solution = generate_solution(row["issue"], row["intensity"], i)
         color = "red" if row["timestamp"] == latest_row["timestamp"] else "blue"
 
         popup_html = f"""
-        <div style="
-            width:320px;
-            font-family: Arial, sans-serif;
-            border-radius:10px;
-            overflow:hidden;
-        ">
-            <div style="
-                background-color:#f2f2f2;
-                padding:12px;
-                font-size:14px;
-                font-weight:600;
-            ">
+        <div style="width:320px; font-family:Arial; border-radius:10px; overflow:hidden;">
+            <div style="background:#f2f2f2; padding:12px; font-weight:600;">
                 Reported Issue : {row['issue']}<br>
                 Intensity : {row['intensity']}
             </div>
-            <div style="
-                background-color:#ffffff;
-                padding:14px;
-                font-size:14px;
-                line-height:1.4;
-            ">
+            <div style="background:white; padding:14px;">
                 <b>Solution :</b><br>
                 {popup_solution}
             </div>
@@ -291,16 +243,18 @@ def render(df_all: pd.DataFrame):
         ).add_to(m)
 
     st_folium(m, width=1400, height=650)
-    
-#Detailed solution part located at bottom of the page
-    st.subheader("📌 Current Reported Solutions")
 
-    detailed = generate_detailed_solutions(
+    # Detailed solution part at the bottom of the page
+    st.subheader("📌 Current Reported Solution")
+
+    primary_solution = generate_solution(
         latest_row["issue"],
-        latest_row["intensity"]
+        latest_row["intensity"],
+        0
     )
 
-    solutions_html = "".join([f"<li>{s}</li>" for s in detailed])
+    additional = generate_detailed_solutions(latest_row["issue"])
+    additional_html = "".join([f"<li>{s}</li>" for s in additional])
 
     st.markdown(
         f"""
@@ -309,10 +263,16 @@ def render(df_all: pd.DataFrame):
                 <b>Reported Issue:</b> {latest_row['issue']}<br>
                 <b>Intensity:</b> {latest_row['intensity']}
             </div>
-            <div style="margin-top:12px;">
-                <b>Recommended Actions:</b>
+
+            <div style="margin-top:14px;">
+                <b>Primary Suggested Action:</b><br>
+                {primary_solution}
+            </div>
+
+            <div style="margin-top:14px;">
+                <b>Additionally:</b>
                 <ul>
-                    {solutions_html}
+                    {additional_html}
                 </ul>
             </div>
         </div>
