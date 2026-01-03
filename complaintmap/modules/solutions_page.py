@@ -229,20 +229,21 @@ def render(df_all: pd.DataFrame):
         ).add_to(m)
 
     st_folium(m, width=1400, height=650)
+    import streamlit.components.v1 as components
 
-    st.subheader("📌 Current Reported Solution")
+st.subheader("📌 Current Reported Solution")
 
-    primary_solution = generate_solution(
-        latest_row["issue"],
-        latest_row["intensity"],
-        0
-    )
+primary_solution = generate_solution(
+    latest_row["issue"],
+    latest_row["intensity"],
+    0
+)
 
-    additional = generate_detailed_solutions(latest_row["issue"])
-    additional_html = "".join([f"<li>{s}</li>" for s in additional])
+additional = generate_detailed_solutions(latest_row["issue"])
+additional_html = "".join([f"<li>{s}</li>" for s in additional])
 
-    st.markdown(
-f"""<div style="background:white; padding:20px; border-radius:12px;">
+html_block = f"""
+<div style="background:white; padding:20px; border-radius:12px; font-family:Arial;">
     <div style="background:#f2f2f2; padding:12px; font-weight:600;">
         Reported Issue: {latest_row['issue']}<br>
         Intensity: {latest_row['intensity']}
@@ -259,6 +260,7 @@ f"""<div style="background:white; padding:20px; border-radius:12px;">
             {additional_html}
         </ul>
     </div>
-</div>""",
-        unsafe_allow_html=True
-    )
+</div>
+"""
+
+components.html(html_block, height=260)
