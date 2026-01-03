@@ -2,15 +2,14 @@ import streamlit as st
 import matplotlib.pyplot as plt
 
 def render(df_all):
-    st.header("📊 Statistics & Distributions")
+    st.header("Statistics & Distributions")
 
     if df_all.empty:
         st.info("No data available yet to compute statistics.")
         return
 
-    # -----------------------------
     # 1) PIE CHART + PERCENTAGES
-    # -----------------------------
+
     st.subheader("Complaint Types Distribution")
 
     counts = df_all["issue_type"].value_counts()
@@ -31,9 +30,8 @@ def render(df_all):
 
     st.markdown("---")
 
-    # -----------------------------
     # 2) SELECT COMPLAINT TYPE
-    # -----------------------------
+
     st.subheader("Filter by Complaint Type")
 
     types = ["All"] + sorted(df_all["issue_type"].unique())
@@ -46,9 +44,9 @@ def render(df_all):
 
     st.markdown("---")
 
-    # -----------------------------
+
     # 3) HISTOGRAMS: NUMBER OF COMPLAINTS
-    # -----------------------------
+
     st.subheader(f"Number of Complaints ({selected_type})")
 
     # Prepare time columns
@@ -101,9 +99,9 @@ def render(df_all):
 
     st.markdown("---")
 
-    # -----------------------------
+
     # 4) HISTOGRAMS: INTENSITY (X=1–5, Y=counts)
-    # -----------------------------
+
     st.subheader(f"Intensity Distribution ({selected_type})")
 
     col_id, col_im, col_iy = st.columns(3)
