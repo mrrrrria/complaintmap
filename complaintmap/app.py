@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-
 import folium
 from folium.plugins import MarkerCluster
 import streamlit as st
@@ -16,7 +15,7 @@ from config import (
 )
 from db import init_db, load_complaints, add_complaint
 
-# Import pages from the "modules" folder
+# Import pages from the modules folder
 from modules import (
     map_heatmap,
     statistics_page,
@@ -26,9 +25,7 @@ from modules import (
     about_page,
 )
 
-# --------------------------------------------------------------------
-# GLOBAL STYLES
-# --------------------------------------------------------------------
+# global styles
 
 def apply_global_style():
     """Apply global CSS styles for the layout, colors and banner."""
@@ -88,7 +85,7 @@ def apply_global_style():
         unsafe_allow_html=True,
     )
 
-
+# banner at the top of the page
 def render_banner():
     """Display a fixed banner at the top of the app."""
     st.markdown(
@@ -104,9 +101,8 @@ def render_banner():
     )
 
 
-# --------------------------------------------------------------------
-# MAIN REPORT PAGE (MAP + COMPLAINT FORM)
-# --------------------------------------------------------------------
+
+# main report page (map and complaint form)
 
 def render_report_home():
     """Main home page: interactive map on the left and reporting form on the right."""
@@ -120,7 +116,7 @@ def render_report_home():
     if not df_all.empty:
         center = [df_all["lat"].mean(), df_all["lon"].mean()]
 
-    # Initialize the Folium map
+    # Initialize the folium map
     m = folium.Map(location=center, zoom_start=DEFAULT_ZOOM)
 
     # Display previous complaints
@@ -258,10 +254,7 @@ def render_report_home():
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-# --------------------------------------------------------------------
-# MAIN APP
-# --------------------------------------------------------------------
-
+#main app
 def main():
     setup()
     init_db()
@@ -285,7 +278,7 @@ def main():
     choice = st.sidebar.radio("Go to", list(pages.keys()))
     page_key = pages[choice]
 
-    # ---------------- PAGE RENDERING ---------------- #
+    # rendering
     if page_key == "home":
         render_report_home()
 
@@ -311,4 +304,5 @@ def main():
 if __name__ == "__main__":
     main()
 
+# to run use streamlit run /path/app.py
 # streamlit run /Users/maria/Desktop/complaintmap/app.py
