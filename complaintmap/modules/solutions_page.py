@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-# ==================================================
-# NORMALIZATION FUNCTION
-# Converts French / mixed issue labels to English
-# ==================================================
+# --------------------------------------------------
+# Normalize complaint categories (French → English)
+# --------------------------------------------------
 def normalize_issue(raw_type):
     if not isinstance(raw_type, str):
         return "Other"
@@ -12,7 +11,6 @@ def normalize_issue(raw_type):
     t = raw_type.strip().lower()
 
     mapping = {
-        # French → English
         "air": "Air quality",
         "chaleur": "Heat",
         "bruit": "Noise",
@@ -20,150 +18,133 @@ def normalize_issue(raw_type):
         "mobilite": "Cycling / Walking",
         "odeur": "Odor",
 
-        # English (already OK)
         "heat": "Heat",
         "noise": "Noise",
         "air quality": "Air quality",
         "odor": "Odor",
+        "mobility": "Cycling / Walking",
         "cycling / walking": "Cycling / Walking",
-        "mobility": "Cycling / Walking"
     }
 
     return mapping.get(t, "Other")
 
 
-# ==================================================
-# SOLUTION KNOWLEDGE BASE (ENGLISH STANDARD)
-# ==================================================
+# --------------------------------------------------
+# Solutions knowledge base
+# --------------------------------------------------
 SOLUTIONS = {
     "Heat": [
-        "Planting trees and increasing urban greenery",
-        "Solar canopies for shading public spaces",
-        "Cool roofs and reflective materials",
-        "Shaded pedestrian corridors"
+        "Increase urban greenery and tree coverage",
+        "Install solar canopies for shading",
+        "Use reflective and cool materials",
+        "Create shaded pedestrian corridors",
     ],
     "Noise": [
         "Low-noise road surfaces",
         "Traffic calming measures",
-        "Sound barriers near major roads",
-        "Restricted traffic hours"
+        "Noise barriers near busy roads",
+        "Time-based traffic restrictions",
     ],
     "Air quality": [
         "Low-emission zones",
-        "Encouraging public transport use",
-        "Green buffers along roads",
-        "Continuous air-quality monitoring"
+        "Promote public transport",
+        "Urban green buffers",
+        "Continuous air-quality monitoring",
     ],
     "Cycling / Walking": [
         "Protected cycling lanes",
-        "Wider and safer sidewalks",
-        "Traffic reduction in city centers",
-        "Improved street lighting"
+        "Wider sidewalks",
+        "Reduced car traffic",
+        "Improved street lighting",
     ],
     "Odor": [
         "Improved waste management",
         "Industrial odor monitoring",
         "Better sewage ventilation",
-        "Regular inspection of facilities"
+        "Regular inspections",
     ],
     "Other": [
         "Further investigation required",
-        "On-site surveys and citizen feedback"
-    ]
+        "Field surveys and citizen feedback",
+    ],
 }
 
 
-# ==================================================
+# --------------------------------------------------
 # MAIN RENDER FUNCTION
-# Called from app.py as: solutions_page.render(df_all)
-# ==================================================
+# Called from app.py → solutions_page.render(df_all)
+# --------------------------------------------------
 def render(df):
-    st.title("💡 Urban Solutions & Recommendations")
+    st.title("💡 Urban Solutions")
 
     st.markdown(
         """
-        This page proposes **urban solutions** based on the types of problems
-        reported by citizens.  
-        It illustrates how **participatory data** can support
-        **Smart City decision-making**.
+        This page links **citizen-reported problems** to
+        **practical urban solutions**, following Smart City principles.
         """
     )
 
-    # --------------------------------------------------
-    # BASIC DATA VALIDATION
-    # --------------------------------------------------
     if df is None or df.empty:
         st.warning("No complaint data available.")
         return
 
     # --------------------------------------------------
-    # DETECT ISSUE COLUMN (CRITICAL FIX)
+    # Detect issue column safely (FIX)
     # --------------------------------------------------
-    possible_cols = ["type", "category", "issue", "problem", "complaint_type"]
+    possible_columns = ["type", "category", "issue", "problem", "complaint_type"]
     issue_col = None
 
-    for col in possible_cols:
+    for col in possible_columns:
         if col in df.columns:
             issue_col = col
             break
 
     if issue_col is None:
-        st.error(
-            "No complaint category column found.\n\n"
-            "Expected one of: type, category, issue, problem, complaint_type."
-        )
+        st.error("No complaint category column found.")
         st.write("Available columns:", list(df.columns))
         return
 
     # --------------------------------------------------
-    # NORMALIZE ISSUE TYPES
+    # Normalize issues
     # --------------------------------------------------
     df = df.copy()
     df["issue"] = df[issue_col].apply(normalize_issue)
 
     # --------------------------------------------------
-    # ISSUE SELECTION UI
+    # User selection
     # --------------------------------------------------
-    st.subheader("Select an issue type")
-
-    issues = sorted(df["issue"].unique())
-    selected_issue = st.selectbox("Urban issue", issues)
+    st.subheader("Select problem type")
+    issue_list = sorted(df["issue"].unique())
+    selected_issue = st.selectbox("Urban issue", issue_list)
 
     # --------------------------------------------------
-    # STATISTICS
+    # Statistics
     # --------------------------------------------------
     count = df[df["issue"] == selected_issue].shape[0]
-    st.info(f"Number of reported cases: **{count}**")
+    st.info(f"Number of reports: **{count}**")
 
     # --------------------------------------------------
-    # DISPLAY SOLUTIONS
+    # Show solutions
     # --------------------------------------------------
-    st.subheader("Recommended solutions")
+    st.subheader("Suggested solutions")
 
-    solutions = SOLUTIONS.get(selected_issue, SOLUTIONS["Other"])
-    for sol in solutions:
+    for sol in SOLUTIONS.get(selected_issue, SOLUTIONS["Other"]):
         st.markdown(f"- {sol}")
 
     # --------------------------------------------------
-    # SMART CITY CONTEXT
+    # Smart City context
     # --------------------------------------------------
     st.markdown("---")
-    st.subheader("Smart City perspective")
-
     st.markdown(
         """
-        These solutions are inspired by **Smart City best practices**.
-
-        They demonstrate how:
-        - Citizen-reported problems can be structured and analyzed
-        - Urban challenges can be translated into concrete actions
-        - Data-driven tools can support city planners and decision-makers
+        These recommendations demonstrate how **citizen data**
+        can be transformed into **actionable urban strategies**.
         """
     )
 
 
-# ==================================================
-# LOCAL TESTING (optional)
-# ==================================================
+# --------------------------------------------------
+# Local test protection
+# --------------------------------------------------
 if __name__ == "__main__":
-    st.warning("This page is intended to be called from app.py with a DataFrame.")
+    st.warning("This module is intended to be called from app.py")
