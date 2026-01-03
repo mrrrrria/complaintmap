@@ -23,6 +23,26 @@ def normalize_issue(value):
         "other": "Other"
     }
     return mapping.get(v, value.capitalize())
+def normalize_issue(value):
+    if not isinstance(value, str):
+        return "Other"
+
+    v = value.strip().lower()
+
+    if "air" in v or "pollution" in v:
+        return "Air"
+    if "noise" in v or "bruit" in v:
+        return "Noise"
+    if "heat" in v or "chaleur" in v or "temperature" in v:
+        return "Heat"
+    if "odor" in v or "odour" in v or "odeur" in v or "smell" in v:
+        return "Odour"
+    if "water" in v or "flood" in v or "drain" in v:
+        return "Water"
+    if "cycling" in v or "walking" in v or "pedestrian" in v:
+        return "Cycling / Walking"
+
+    return "Other"
     
 # Simple short solutions
 def generate_solution(issue, intensity, variant):
