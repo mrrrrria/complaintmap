@@ -21,7 +21,6 @@ from modules import (
     statistics_page,
     solutions_page,
     air_heatmap_page,
-    solar_tool,
     about_page,
 )
 
@@ -271,7 +270,6 @@ def main():
         "Statistics": "stats",
         "Proposed solutions": "solutions",
         "Air heatmap": "air",
-        "Solar tool": "solar",
         "About": "about",
     }
 
@@ -293,8 +291,6 @@ def main():
             solutions_page.render(df_all)
         elif page_key == "air":
             air_heatmap_page.render()
-        elif page_key == "solar":
-            solar_tool.render()
         elif page_key == "about":
             about_page.render()
         else:
@@ -303,6 +299,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# to run use streamlit run /path/app.py
-# streamlit run /Users/maria/Desktop/complaintmap/app.py
