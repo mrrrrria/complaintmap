@@ -5,7 +5,6 @@ from folium import Map
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
 
-# ---------- MAP DEFAULT CENTER ---------- #
 try:
     from config import DEFAULT_LAT, DEFAULT_LON, DEFAULT_ZOOM
 except Exception:
@@ -20,7 +19,7 @@ LYON_LON_MAX = 5.1
 MAX_FR_LOCATIONS = 1000
 
 
-# ---------- OPENAQ CONFIG ---------- #
+# openaq config 
 
 def get_openaq_api_key() -> str | None:
     """Retrieve the OpenAQ API key from env or config.py."""
@@ -43,7 +42,7 @@ PARAM_IDS = {
 }
 
 
-# ---------- API FUNCTIONS (LYON) ---------- #
+# API funct 
 
 def fetch_locations_for_parameter_lyon(parameter: str):
     """
@@ -160,7 +159,6 @@ def fetch_points_with_values_lyon(parameter: str):
     return points
 
 
-# ---------- STREAMLIT PAGE ---------- #
 
 def render():
     st.header("🌍 Air Quality Heatmap – City of Lyon (OpenAQ v3)")
