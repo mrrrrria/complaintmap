@@ -10,9 +10,6 @@ Global configuration file of the Smart Complaint Map.
 import os
 import streamlit as st
 
-
-# ---------------- PATHS & FILES ---------------- #
-
 # DATABASE SQLite
 DB_PATH = "complaints.db"
 
@@ -23,7 +20,7 @@ UPLOAD_DIR = "uploads"
 OPENAQ_API_KEY = "2ce5f5f19f575442fd61aa19b94b50b0bcfbeef41e821b17173f6427e8c4ddf9"
 
 
-# ---------------- GEOGRAPHICAL PARAMETERS ---------------- #
+# Geographical Param
 
 # Default position (Lyon)
 DEFAULT_LAT = 45.76
@@ -32,7 +29,6 @@ DEFAULT_LON = 4.85
 # Niveau de zoom par défaut pour les cartes
 DEFAULT_ZOOM = 13
 
-# ---------------- COLORS ---------------- #
 
 # Main website colours : light green
 PRIMARY_BG = "#f1ffe8"   
@@ -49,7 +45,7 @@ COLOR_MAP = {
     "Other": "#6c757d",               # grey
 }
 
-# ---------------- CONFIGURATION STREAMLIT ---------------- #
+# streamlit configuration
 
 def setup():
     st.set_page_config(
