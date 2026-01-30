@@ -23,8 +23,8 @@ OPENAQ_API_KEY = "2ce5f5f19f575442fd61aa19b94b50b0bcfbeef41e821b17173f6427e8c4dd
 # Geographical Param
 
 # Default position (Lyon)
-DEFAULT_LAT = 45.76
-DEFAULT_LON = 4.85
+DEFAULT_LAT = 17.4065
+DEFAULT_LON = 78.4772
 
 # Niveau de zoom par défaut pour les cartes
 DEFAULT_ZOOM = 13
