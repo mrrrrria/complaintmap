@@ -25,7 +25,7 @@ from modules import (
 )
 
 # =========================================================
-# 🔧 CHANGE: Authority contacts for HYDERABAD
+# 🔧 CHANGE: Authority contacts (Hyderabad)
 # =========================================================
 AUTHORITY_CONTACTS = {
     "Air quality": {
@@ -67,10 +67,6 @@ def apply_global_style():
             padding-top: 4.5rem;
         }
 
-        [data-testid="stHeader"] {
-            background-color: rgba(0,0,0,0);
-        }
-
         [data-testid="stSidebar"] {
             background-color: #e1f5dd;
             border-right: 1px solid #c4e4be;
@@ -86,7 +82,6 @@ def apply_global_style():
             background-color: #d5f5c8;
             padding: 0.75rem 2rem;
             border-bottom: 1px solid #b9e6ae;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
         }
 
         .top-banner-title {
@@ -121,7 +116,7 @@ def render_banner():
         <div class="top-banner">
             <h1 class="top-banner-title">🌱 Smart Complaint Map</h1>
             <p class="top-banner-subtitle">
-                A citizen-powered platform for mapping urban issues in Hyderabad
+                Citizen-powered urban issue reporting – Hyderabad
             </p>
         </div>
         """,
@@ -164,7 +159,12 @@ def render_report_home():
     left, right = st.columns([2.5, 1])
 
     with left:
-        map_data = st_folium(m, width=750, height=550)
+        # 🔧 CHANGE: responsive map (no white space)
+        map_data = st_folium(
+            m,
+            height=600,
+            use_container_width=True,
+        )
 
     if map_data and map_data.get("last_clicked"):
         st.session_state["clicked_location"] = {
@@ -194,7 +194,13 @@ def render_report_home():
             intensity = st.slider("Intensity (1 = low, 5 = high)", 1, 5, 3)
             description = st.text_area("Description (optional)")
 
-            # 🔧 CHANGE: Show authority info
+            # 🔧 ADD: Photo upload
+            photo_file = st.file_uploader(
+                "Upload a photo (optional)",
+                type=["jpg", "jpeg", "png"],
+            )
+
+            # Authority info
             authority = AUTHORITY_CONTACTS.get(issue_type)
             if authority:
                 st.markdown("**Responsible authority**")
@@ -207,13 +213,25 @@ def render_report_home():
             )
 
             if st.button("✅ Submit report"):
+                photo_path = None
+
+                # 🔧 ADD: Save photo
+                if photo_file:
+                    os.makedirs(UPLOAD_DIR, exist_ok=True)
+                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{ts}_{photo_file.name}"
+                    save_path = os.path.join(UPLOAD_DIR, filename)
+                    with open(save_path, "wb") as f:
+                        f.write(photo_file.getbuffer())
+                    photo_path = save_path
+
                 add_complaint(
                     issue_type,
                     intensity,
                     clicked["lat"],
                     clicked["lon"],
                     description,
-                    None,
+                    photo_path,
                 )
 
                 st.success("Thank you! Your report has been submitted.")
@@ -256,8 +274,8 @@ def main():
     setup()
     init_db()
 
-    apply_global_style()   # ✅ RESTORED
-    render_banner()        # ✅ RESTORED
+    apply_global_style()
+    render_banner()
 
     st.sidebar.markdown("## 🌿 Menu")
 
@@ -289,4 +307,5 @@ def main():
             about_page.render()
 
 if __name__ == "__main__":
+    st.set_page_config(layout="wide")
     main()
