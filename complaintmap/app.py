@@ -133,7 +133,7 @@ def render_report_home():
     if "addr_suggestions" not in st.session_state:
         st.session_state["addr_suggestions"] = []
 
-    if search_query and len(search_query) >= 3:
+
         try:
             r = requests.get(
                 "https://nominatim.openstreetmap.org/search",
