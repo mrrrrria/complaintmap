@@ -87,53 +87,58 @@ def render_banner():
 def render_report_home():
     st.subheader("Report an issue on the map")
 
-    # ---------- Address search ----------
-    search_query = st.text_input("🔎 Search location (Hyderabad)", key="search")
+    # ---------------- Search ----------------
+    search_query = st.text_input("🔎 Search location (Hyderabad)")
 
-    if "addr_suggestions" not in st.session_state:
-        st.session_state["addr_suggestions"] = []
+    if "clicked_location" not in st.session_state:
+        st.session_state["clicked_location"] = None
+
+    if "search_results" not in st.session_state:
+        st.session_state["search_results"] = []
 
     if search_query and len(search_query) >= 3:
         try:
             r = requests.get(
                 "https://nominatim.openstreetmap.org/search",
                 params={
-                    "q": search_query,
+                    "q": f"{search_query}, Hyderabad",
                     "format": "json",
                     "limit": 5,
-                    "city": "Hyderabad",
                     "countrycodes": "in",
                 },
                 headers={"User-Agent": "smart-complaint-map"},
                 timeout=5,
             )
             if r.ok:
-                st.session_state["addr_suggestions"] = r.json()
+                st.session_state["search_results"] = r.json()
         except Exception:
-            st.session_state["addr_suggestions"] = []
+            st.session_state["search_results"] = []
 
-    if st.session_state["addr_suggestions"]:
-        options = [s["display_name"] for s in st.session_state["addr_suggestions"]]
+    if st.session_state["search_results"]:
+        options = [
+            s["display_name"] for s in st.session_state["search_results"]
+        ]
         selected = st.selectbox("Select address", options)
 
         if selected:
             idx = options.index(selected)
-            loc = st.session_state["addr_suggestions"][idx]
+            loc = st.session_state["search_results"][idx]
             st.session_state["clicked_location"] = {
                 "lat": float(loc["lat"]),
                 "lon": float(loc["lon"]),
             }
-            st.session_state["addr_suggestions"] = []
+            st.session_state["search_results"] = []
 
-    # ---------- Load complaints ----------
+    # ---------------- Map ----------------
     df_all = load_complaints()
-    clicked = st.session_state.get("clicked_location")
 
     center = [DEFAULT_LAT, DEFAULT_LON]
-    if clicked:
-        center = [clicked["lat"], clicked["lon"]]
+    if st.session_state["clicked_location"]:
+        center = [
+            st.session_state["clicked_location"]["lat"],
+            st.session_state["clicked_location"]["lon"],
+        ]
 
-    # ---------- Map ----------
     m = folium.Map(location=center, zoom_start=DEFAULT_ZOOM)
 
     if not df_all.empty:
@@ -142,20 +147,23 @@ def render_report_home():
             folium.CircleMarker(
                 [row["lat"], row["lon"]],
                 radius=5,
-                color=COLOR_MAP.get(row["issue_type"], "#4caf50"),
                 fill=True,
+                color=COLOR_MAP.get(row["issue_type"], "#4caf50"),
                 fill_opacity=0.8,
             ).add_to(cluster)
 
-    if clicked:
+    if st.session_state["clicked_location"]:
         folium.Marker(
-            [clicked["lat"], clicked["lon"]],
+            [
+                st.session_state["clicked_location"]["lat"],
+                st.session_state["clicked_location"]["lon"],
+            ],
             icon=folium.Icon(color="green", icon="plus"),
         ).add_to(m)
 
-    left, right = st.columns([2.5, 1])
+    col_map, col_form = st.columns([2.5, 1])
 
-    with left:
+    with col_map:
         map_data = st_folium(m, height=600, use_container_width=True)
 
         if map_data and map_data.get("last_clicked"):
@@ -164,38 +172,36 @@ def render_report_home():
                 "lon": map_data["last_clicked"]["lng"],
             }
 
-    # ---------- Form ----------
-    with right:
+    # ---------------- Form ----------------
+    with col_form:
         st.markdown('<div class="report-card">', unsafe_allow_html=True)
 
-        if "clicked_location" not in st.session_state:
-            st.info("Click on the map or search for a location.")
+        if not st.session_state["clicked_location"]:
+            st.info("Click on the map or select a location from search.")
         else:
-            ISSUE_TYPES = [
-                "Air quality",
-                "Noise",
-                "Heat",
-                "Cycling / Walking",
-                "Odor",
-                "Other",
-            ]
-
-            issue_type = st.selectbox("Issue type", ISSUE_TYPES)
+            issue_type = st.selectbox(
+                "Issue type",
+                [
+                    "Air quality",
+                    "Noise",
+                    "Heat",
+                    "Cycling / Walking",
+                    "Odor",
+                    "Other",
+                ],
+            )
             intensity = st.slider("Intensity (1–5)", 1, 5, 3)
             description = st.text_area("Description (optional)")
-            photo_file = st.file_uploader(
-                "Upload a photo (optional)", ["jpg", "jpeg", "png"]
-            )
+            photo = st.file_uploader("Upload a photo (optional)", ["jpg", "png", "jpeg"])
 
-            if st.button("✅ Submit complaint"):
+            if st.button("Submit complaint"):
                 photo_path = None
-                if photo_file:
+                if photo:
                     os.makedirs(UPLOAD_DIR, exist_ok=True)
-                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"{ts}_{photo_file.name}"
-                    photo_path = os.path.join(UPLOAD_DIR, filename)
+                    fname = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{photo.name}"
+                    photo_path = os.path.join(UPLOAD_DIR, fname)
                     with open(photo_path, "wb") as f:
-                        f.write(photo_file.getbuffer())
+                        f.write(photo.getbuffer())
 
                 add_complaint(
                     issue_type,
@@ -210,7 +216,6 @@ def render_report_home():
                 st.session_state["clicked_location"] = None
 
         st.markdown("</div>", unsafe_allow_html=True)
-
 # ---------------------------------------------------------
 # MAIN APP
 # ---------------------------------------------------------
