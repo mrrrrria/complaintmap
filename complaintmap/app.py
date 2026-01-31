@@ -31,7 +31,7 @@ from modules import (
 )
 
 # ---------------------------------------------------------
-# AUTHORITY CONTACTS (HYDERABAD)
+# AUTHORITY CONTACTS (Hyderabad)
 # ---------------------------------------------------------
 AUTHORITY_CONTACTS = {
     "Air quality": {
@@ -59,6 +59,11 @@ AUTHORITY_CONTACTS = {
         "email": "sanitation-ghmc@telangana.gov.in",
         "phone": "040-21111111",
     },
+    "Other": {
+        "dept": "Greater Hyderabad Municipal Corporation",
+        "email": "info.ghmc@telangana.gov.in",
+        "phone": "040-21111111"
+    }
 }
 
 # ---------------------------------------------------------
@@ -125,10 +130,13 @@ def render_banner():
 def render_report_home():
     st.subheader("Report an issue on the map")
 
-    # ------------------ SEARCH WITH SUGGESTIONS ------------------
-    search_query = st.text_input("🔎 Search address / area (Hyderabad)")
+    # ---------------- Search with suggestions ----------------
+    search_query = st.text_input("🔎 Search address / area (type at least 3 chars)")
 
-    if len(search_query) >= 3:
+    if "addr_suggestions" not in st.session_state:
+        st.session_state["addr_suggestions"] = []
+
+    if search_query and len(search_query) >= 3:
         try:
             r = requests.get(
                 "https://nominatim.openstreetmap.org/search",
@@ -136,20 +144,25 @@ def render_report_home():
                 headers={"User-Agent": "smart-complaint-map"},
                 timeout=5,
             )
-            results = r.json() if r.ok else []
+            if r.ok:
+                st.session_state["addr_suggestions"] = r.json()
         except Exception:
-            results = []
+            st.session_state["addr_suggestions"] = []
 
-        if results:
-            labels = [r["display_name"] for r in results]
-            choice = st.selectbox("Select location", labels)
-            idx = labels.index(choice)
+    if st.session_state["addr_suggestions"]:
+        options = [
+            f"{s['display_name']}" for s in st.session_state["addr_suggestions"]
+        ]
+        selected = st.selectbox("Select suggestion", options)
+        if selected:
+            idx = options.index(selected)
+            loc = st.session_state["addr_suggestions"][idx]
             st.session_state["clicked_location"] = {
-                "lat": float(results[idx]["lat"]),
-                "lon": float(results[idx]["lon"]),
+                "lat": float(loc["lat"]),
+                "lon": float(loc["lon"]),
             }
 
-    # ------------------ CURRENT LOCATION ------------------
+    # ---------------- Current location ----------------
     if st.button("📍 Use my current location"):
         st.markdown(
             """
@@ -167,7 +180,7 @@ def render_report_home():
             unsafe_allow_html=True,
         )
 
-    # ------------------ MAP ------------------
+    # ---------------- Map rendering ----------------
     df_all = load_complaints()
     clicked = st.session_state.get("clicked_location")
 
@@ -197,21 +210,24 @@ def render_report_home():
     left, right = st.columns([2.5, 1])
 
     with left:
-        map_data = st_folium(m, height=600, use_container_width=True)
+        returned = st_folium(
+            m,
+            height=600,
+            use_container_width=True,
+            returned_objects=["last_clicked"],
+        )
 
-    if map_data and map_data.get("last_clicked"):
-        st.session_state["clicked_location"] = {
-            "lat": map_data["last_clicked"]["lat"],
-            "lon": map_data["last_clicked"]["lng"],
-        }
-        clicked = st.session_state["clicked_location"]
+        if returned and returned.get("last_clicked"):
+            lat = returned["last_clicked"]["lat"]
+            lon = returned["last_clicked"]["lng"]
+            st.session_state["clicked_location"] = {"lat": lat, "lon": lon}
 
-    # ------------------ FORM ------------------
+    # ---------------- Complaint form ----------------
     with right:
         st.markdown('<div class="report-card">', unsafe_allow_html=True)
 
-        if not clicked:
-            st.info("Click on the map or search a location to report an issue.")
+        if "clicked_location" not in st.session_state:
+            st.info("Click on the map or use search/current location to report an issue.")
         else:
             ISSUE_TYPES = [
                 "Air quality",
@@ -225,52 +241,59 @@ def render_report_home():
             issue_type = st.selectbox("Issue type", ISSUE_TYPES)
             intensity = st.slider("Intensity (1–5)", 1, 5, 3)
             description = st.text_area("Description (optional)")
-            photo = st.file_uploader("Upload a photo (optional)", ["jpg", "jpeg", "png"])
+            photo_file = st.file_uploader("Upload a photo (optional)", ["jpg", "jpeg", "png"])
 
             authority = AUTHORITY_CONTACTS.get(issue_type)
             if authority:
                 st.write(f"🏛️ {authority['dept']}")
+                st.write(f"📞 {authority['phone']}")
                 st.write(f"📧 {authority['email']}")
 
-            send_email = st.checkbox("Generate email to authority")
+            send_email = st.checkbox("Generate email to send this complaint")
 
             if st.button("✅ Submit"):
                 photo_path = None
-                if photo:
+                if photo_file:
                     os.makedirs(UPLOAD_DIR, exist_ok=True)
-                    name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{photo.name}"
-                    photo_path = os.path.join(UPLOAD_DIR, name)
-                    with open(photo_path, "wb") as f:
-                        f.write(photo.getbuffer())
+                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{ts}_{photo_file.name}"
+                    save_path = os.path.join(UPLOAD_DIR, filename)
+                    with open(save_path, "wb") as f:
+                        f.write(photo_file.getbuffer())
+                    photo_path = save_path
 
                 add_complaint(
                     issue_type,
                     intensity,
-                    clicked["lat"],
-                    clicked["lon"],
+                    st.session_state["clicked_location"]["lat"],
+                    st.session_state["clicked_location"]["lon"],
                     description,
                     photo_path,
                 )
 
-                st.success("Complaint submitted!")
+                st.success("Complaint submitted successfully!")
 
                 if send_email and authority:
                     subject = f"Citizen complaint – {issue_type}"
                     body = f"""
-Location: {clicked['lat']}, {clicked['lon']}
+Location: {st.session_state["clicked_location"]["lat"]}, {st.session_state["clicked_location"]["lon"]}
 Intensity: {intensity}
 
-{description or ''}
+{description or ""}
 """
-                    mailto = f"mailto:{authority['email']}?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
-                    st.markdown(f"[📨 Send email]({mailto})")
+                    mailto = (
+                        f"mailto:{authority['email']}?"
+                        f"subject={urllib.parse.quote(subject)}&"
+                        f"body={urllib.parse.quote(body)}"
+                    )
+                    st.markdown(f"[📨 Click here to send email]({mailto})")
 
                 st.session_state["clicked_location"] = None
 
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# MAIN
+# MAIN APP
 # ---------------------------------------------------------
 def main():
     setup()
