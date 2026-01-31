@@ -7,13 +7,13 @@ import streamlit.components.v1 as components
 
 
 # ---------------------------------------------------------
-# NORMALIZE ISSUE NAMES
+# NORMALIZE ISSUE TYPES
 # ---------------------------------------------------------
 def normalize_issue(value):
     if not isinstance(value, str):
         return "Other"
 
-    v = value.strip().lower()
+    v = value.lower()
 
     if "air" in v:
         return "Air"
@@ -21,7 +21,7 @@ def normalize_issue(value):
         return "Noise"
     if "heat" in v:
         return "Heat"
-    if "odor" in v or "odour" in v or "smell" in v:
+    if "odor" in v or "odour" in v:
         return "Odour"
     if "cycling" in v or "walking" in v:
         return "Cycling / Walking"
@@ -38,25 +38,25 @@ def generate_solutions(issue, intensity):
     SOLUTIONS = {
         "Odour": {
             "primary": [
-                "Inspect waste collection points and sanitation facilities.",
+                "Inspect waste collection and sanitation facilities.",
                 "Upgrade waste processing and treatment systems.",
                 "Identify and control odor-generating sources."
             ],
             "additional": [
                 "Increase waste collection frequency.",
                 "Improve waste segregation at source.",
-                "Enforce sanitation regulations in affected areas."
+                "Enforce sanitation regulations in affected zones."
             ]
         },
         "Air": {
             "primary": [
-                "Reduce traffic congestion in affected zones.",
+                "Reduce vehicular congestion in affected areas.",
                 "Control emissions from nearby industries."
             ],
             "additional": [
                 "Promote public transport usage.",
                 "Increase urban green cover.",
-                "Conduct regular air quality monitoring."
+                "Conduct regular air quality inspections."
             ]
         },
         "Noise": {
@@ -72,21 +72,21 @@ def generate_solutions(issue, intensity):
         "Heat": {
             "primary": [
                 "Increase shaded areas and tree cover.",
-                "Apply heat-reflective materials on roads and buildings."
+                "Apply heat-reflective materials on roads."
             ],
             "additional": [
-                "Develop urban green corridors.",
-                "Improve water sprinkling in high-heat zones."
+                "Develop green corridors.",
+                "Improve water sprinkling in hot zones."
             ]
         },
         "Cycling / Walking": {
             "primary": [
                 "Improve pedestrian crossings and footpaths.",
-                "Develop dedicated cycling lanes."
+                "Develop protected cycling lanes."
             ],
             "additional": [
                 "Improve street lighting.",
-                "Implement traffic calming measures."
+                "Introduce traffic calming measures."
             ]
         },
         "Other": {
@@ -103,7 +103,7 @@ def generate_solutions(issue, intensity):
 
 
 # ---------------------------------------------------------
-# RESPONSIBLE AUTHORITIES (HYDERABAD)
+# RESPONSIBLE AUTHORITIES – HYDERABAD
 # ---------------------------------------------------------
 AUTHORITIES = {
     "Odour": ("GHMC – Sanitation Department", "040-21111111", "sanitation-ghmc@telangana.gov.in"),
@@ -128,35 +128,25 @@ def render(df_all: pd.DataFrame):
 
     df = df_all.copy()
 
-    required = ["issue_type", "intensity", "lat", "lon", "timestamp", "description"]
-    for col in required:
-        if col not in df.columns:
-            st.error(f"Missing column: {col}")
-            return
-
     df["issue"] = df["issue_type"].apply(normalize_issue)
     df["intensity"] = df["intensity"].fillna(1).astype(int)
 
-    # Latest report
     df = df.sort_values("timestamp")
     latest = df.iloc[-1]
 
-    # -----------------------------------------------------
-    # MAP
-    # -----------------------------------------------------
+    # ---------------- MAP ----------------
     m = folium.Map(
         location=[latest["lat"], latest["lon"]],
         zoom_start=14
     )
 
-    # Heatmap of all complaints
     HeatMap(df[["lat", "lon"]].values.tolist(), radius=25, blur=18).add_to(m)
 
-    for _, row in df.iterrows():
+    for idx, row in df.iterrows():
         primary, _ = generate_solutions(row["issue"], row["intensity"])
 
         popup_html = f"""
-        <div style="width:320px;font-family:Arial;">
+        <div style="width:330px;font-family:Arial;">
             <b>Issue:</b> {row['issue']}<br>
             <b>Intensity:</b> {row['intensity']} / 5<br>
             <b>Reported:</b> {row['timestamp']}<br><br>
@@ -175,55 +165,44 @@ def render(df_all: pd.DataFrame):
 
     st_folium(m, width=1400, height=650)
 
-    # -----------------------------------------------------
-    # BOTTOM SOLUTION BOX (CLEAN GREY STYLE)
-    # -----------------------------------------------------
+    # ---------------- BOTTOM SOLUTION BOX ----------------
     primary, additional = generate_solutions(latest["issue"], latest["intensity"])
-    auth = AUTHORITIES.get(latest["issue"], AUTHORITIES["Other"])
+    authority = AUTHORITIES.get(latest["issue"], AUTHORITIES["Other"])
 
     html = f"""
-    <div style="
-        background:#f4f4f4;
-        padding:26px;
-        border-radius:14px;
-        border:1px solid #d0d0d0;
-        font-family: Arial, sans-serif;
-        color:#222;
-    ">
-        <div style="
-            background:#e6e6e6;
-            padding:14px 18px;
-            border-radius:10px;
-            font-size:18px;
-            font-weight:600;
-            margin-bottom:18px;
-        ">
+    <div style="border:1px solid #d6d6d6;border-radius:14px;overflow:hidden;font-family:Arial;">
+
+        <!-- Grey header -->
+        <div style="background:#e9e9e9;padding:14px 20px;font-size:18px;font-weight:600;">
             📌 Current Reported Solution
         </div>
 
-        <b>Reported Issue:</b> {latest['issue']}<br>
-        <b>Intensity:</b> {latest['intensity']} / 5<br>
-        <b>Reported on:</b> {latest['timestamp']}<br>
+        <!-- White body -->
+        <div style="background:white;padding:22px;font-size:15px;color:#222;">
+            <b>Reported Issue:</b> {latest['issue']}<br>
+            <b>Intensity:</b> {latest['intensity']} / 5<br>
+            <b>Reported on:</b> {latest['timestamp']}<br>
 
-        <hr style="margin:18px 0;">
+            <hr style="margin:18px 0;">
 
-        <b>Primary suggested action</b><br>
-        {primary}
+            <b>Primary suggested action</b><br>
+            {primary}
 
-        <br><br>
+            <br><br>
 
-        <b>Additional actions</b>
-        <ul>
-            {''.join(f"<li>{s}</li>" for s in additional)}
-        </ul>
+            <b>Additional actions</b>
+            <ul>
+                {''.join(f"<li>{s}</li>" for s in additional)}
+            </ul>
 
-        <hr style="margin:18px 0;">
+            <hr style="margin:18px 0;">
 
-        <b>Responsible authority</b><br>
-        {auth[0]}<br>
-        📞 {auth[1]}<br>
-        📧 {auth[2]}
+            <b>Responsible authority</b><br>
+            {authority[0]}<br>
+            📞 {authority[1]}<br>
+            📧 {authority[2]}
+        </div>
     </div>
     """
 
-    components.html(html, height=560)
+    components.html(html, height=520)
