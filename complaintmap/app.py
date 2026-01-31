@@ -5,6 +5,12 @@ from folium.plugins import MarkerCluster
 import streamlit as st
 from streamlit_folium import st_folium
 import urllib.parse
+import requests
+
+# ---------------------------------------------------------
+# PAGE CONFIG (must be first)
+# ---------------------------------------------------------
+st.set_page_config(layout="wide")
 
 from config import (
     setup,
@@ -24,9 +30,9 @@ from modules import (
     about_page,
 )
 
-# =========================================================
-# 🔧 CHANGE: Authority contacts (Hyderabad)
-# =========================================================
+# ---------------------------------------------------------
+# AUTHORITY CONTACTS (HYDERABAD)
+# ---------------------------------------------------------
 AUTHORITY_CONTACTS = {
     "Air quality": {
         "dept": "Telangana Pollution Control Board",
@@ -55,13 +61,18 @@ AUTHORITY_CONTACTS = {
     },
 }
 
-# =========================================================
-# GLOBAL STYLE (GREEN THEME)
-# =========================================================
+# ---------------------------------------------------------
+# GLOBAL STYLE
+# ---------------------------------------------------------
 def apply_global_style():
     st.markdown(
         """
         <style>
+        header[data-testid="stHeader"] {
+            height: 0px;
+            visibility: hidden;
+        }
+
         [data-testid="stAppViewContainer"] {
             background-color: #f1ffe8;
             padding-top: 4.5rem;
@@ -84,16 +95,6 @@ def apply_global_style():
             border-bottom: 1px solid #b9e6ae;
         }
 
-        .top-banner-title {
-            margin: 0;
-            font-size: 1.6rem;
-        }
-
-        .top-banner-subtitle {
-            margin: 0.1rem 0 0 0;
-            font-size: 0.95rem;
-        }
-
         .report-card {
             background-color: #ffffff;
             border-radius: 12px;
@@ -107,34 +108,72 @@ def apply_global_style():
         unsafe_allow_html=True,
     )
 
-# =========================================================
-# TOP BANNER
-# =========================================================
 def render_banner():
     st.markdown(
         """
         <div class="top-banner">
-            <h1 class="top-banner-title">🌱 Smart Complaint Map</h1>
-            <p class="top-banner-subtitle">
-                Citizen-powered urban issue reporting – Hyderabad
-            </p>
+            <h1>🌱 Smart Complaint Map</h1>
+            <p>Citizen-powered urban issue reporting – Hyderabad</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-# =========================================================
-# HOME PAGE (MAP + FORM)
-# =========================================================
+# ---------------------------------------------------------
+# HOME PAGE
+# ---------------------------------------------------------
 def render_report_home():
     st.subheader("Report an issue on the map")
 
+    # ------------------ SEARCH WITH SUGGESTIONS ------------------
+    search_query = st.text_input("🔎 Search address / area (Hyderabad)")
+
+    if len(search_query) >= 3:
+        try:
+            r = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": search_query, "format": "json", "limit": 5},
+                headers={"User-Agent": "smart-complaint-map"},
+                timeout=5,
+            )
+            results = r.json() if r.ok else []
+        except Exception:
+            results = []
+
+        if results:
+            labels = [r["display_name"] for r in results]
+            choice = st.selectbox("Select location", labels)
+            idx = labels.index(choice)
+            st.session_state["clicked_location"] = {
+                "lat": float(results[idx]["lat"]),
+                "lon": float(results[idx]["lon"]),
+            }
+
+    # ------------------ CURRENT LOCATION ------------------
+    if st.button("📍 Use my current location"):
+        st.markdown(
+            """
+            <script>
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                window.parent.postMessage(
+                  {lat: pos.coords.latitude, lon: pos.coords.longitude},
+                  "*"
+                );
+              }
+            );
+            </script>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # ------------------ MAP ------------------
     df_all = load_complaints()
     clicked = st.session_state.get("clicked_location")
 
     center = [DEFAULT_LAT, DEFAULT_LON]
-    if not df_all.empty:
-        center = [df_all["lat"].mean(), df_all["lon"].mean()]
+    if clicked:
+        center = [clicked["lat"], clicked["lon"]]
 
     m = folium.Map(location=center, zoom_start=DEFAULT_ZOOM)
 
@@ -142,12 +181,11 @@ def render_report_home():
         cluster = MarkerCluster().add_to(m)
         for _, row in df_all.iterrows():
             folium.CircleMarker(
-                location=[row["lat"], row["lon"]],
+                [row["lat"], row["lon"]],
                 radius=5,
                 color=COLOR_MAP.get(row["issue_type"], "#4caf50"),
                 fill=True,
                 fill_opacity=0.8,
-                popup=f"{row['issue_type']} (Intensity {row['intensity']})",
             ).add_to(cluster)
 
     if clicked:
@@ -159,12 +197,7 @@ def render_report_home():
     left, right = st.columns([2.5, 1])
 
     with left:
-        # 🔧 CHANGE: responsive map (no white space)
-        map_data = st_folium(
-            m,
-            height=600,
-            use_container_width=True,
-        )
+        map_data = st_folium(m, height=600, use_container_width=True)
 
     if map_data and map_data.get("last_clicked"):
         st.session_state["clicked_location"] = {
@@ -173,14 +206,13 @@ def render_report_home():
         }
         clicked = st.session_state["clicked_location"]
 
+    # ------------------ FORM ------------------
     with right:
         st.markdown('<div class="report-card">', unsafe_allow_html=True)
 
         if not clicked:
-            st.info("Click a location on the map to report an issue.")
+            st.info("Click on the map or search a location to report an issue.")
         else:
-            st.markdown("### 📍 Report an issue")
-
             ISSUE_TYPES = [
                 "Air quality",
                 "Noise",
@@ -191,39 +223,25 @@ def render_report_home():
             ]
 
             issue_type = st.selectbox("Issue type", ISSUE_TYPES)
-            intensity = st.slider("Intensity (1 = low, 5 = high)", 1, 5, 3)
+            intensity = st.slider("Intensity (1–5)", 1, 5, 3)
             description = st.text_area("Description (optional)")
+            photo = st.file_uploader("Upload a photo (optional)", ["jpg", "jpeg", "png"])
 
-            # 🔧 ADD: Photo upload
-            photo_file = st.file_uploader(
-                "Upload a photo (optional)",
-                type=["jpg", "jpeg", "png"],
-            )
-
-            # Authority info
             authority = AUTHORITY_CONTACTS.get(issue_type)
             if authority:
-                st.markdown("**Responsible authority**")
                 st.write(f"🏛️ {authority['dept']}")
-                st.write(f"📞 {authority['phone']}")
                 st.write(f"📧 {authority['email']}")
 
-            send_email = st.checkbox(
-                "📧 Generate email to send this complaint to the authority"
-            )
+            send_email = st.checkbox("Generate email to authority")
 
-            if st.button("✅ Submit report"):
+            if st.button("✅ Submit"):
                 photo_path = None
-
-                # 🔧 ADD: Save photo
-                if photo_file:
+                if photo:
                     os.makedirs(UPLOAD_DIR, exist_ok=True)
-                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"{ts}_{photo_file.name}"
-                    save_path = os.path.join(UPLOAD_DIR, filename)
-                    with open(save_path, "wb") as f:
-                        f.write(photo_file.getbuffer())
-                    photo_path = save_path
+                    name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{photo.name}"
+                    photo_path = os.path.join(UPLOAD_DIR, name)
+                    with open(photo_path, "wb") as f:
+                        f.write(photo.getbuffer())
 
                 add_complaint(
                     issue_type,
@@ -234,46 +252,29 @@ def render_report_home():
                     photo_path,
                 )
 
-                st.success("Thank you! Your report has been submitted.")
+                st.success("Complaint submitted!")
 
                 if send_email and authority:
-                    subject = f"Citizen complaint – {issue_type} issue in Hyderabad"
+                    subject = f"Citizen complaint – {issue_type}"
                     body = f"""
-Dear Sir/Madam,
-
-I would like to report a {issue_type.lower()} issue at:
-
-Latitude: {clicked['lat']}
-Longitude: {clicked['lon']}
+Location: {clicked['lat']}, {clicked['lon']}
 Intensity: {intensity}
 
-Description:
-{description or "Not provided"}
-
-This message was generated using a Smart Complaint Map
-(academic project).
-
-Regards,
-A concerned citizen
+{description or ''}
 """
-                    mailto = (
-                        f"mailto:{authority['email']}?"
-                        f"subject={urllib.parse.quote(subject)}&"
-                        f"body={urllib.parse.quote(body)}"
-                    )
-                    st.markdown(f"[📨 Click here to open email]({mailto})")
+                    mailto = f"mailto:{authority['email']}?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+                    st.markdown(f"[📨 Send email]({mailto})")
 
                 st.session_state["clicked_location"] = None
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-# =========================================================
-# MAIN APP
-# =========================================================
+# ---------------------------------------------------------
+# MAIN
+# ---------------------------------------------------------
 def main():
     setup()
     init_db()
-
     apply_global_style()
     render_banner()
 
@@ -289,23 +290,22 @@ def main():
     }
 
     choice = st.sidebar.radio("Go to", list(pages.keys()))
-    page = pages[choice]
+    key = pages[choice]
 
-    if page == "home":
+    if key == "home":
         render_report_home()
     else:
         df_all = load_complaints()
-        if page == "map":
+        if key == "map":
             map_heatmap.render(df_all)
-        elif page == "stats":
+        elif key == "stats":
             statistics_page.render(df_all)
-        elif page == "solutions":
+        elif key == "solutions":
             solutions_page.render(df_all)
-        elif page == "air":
+        elif key == "air":
             air_heatmap_page.render()
-        elif page == "about":
+        elif key == "about":
             about_page.render()
 
 if __name__ == "__main__":
-    st.set_page_config(layout="wide")
     main()
