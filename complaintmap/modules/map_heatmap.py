@@ -3,7 +3,9 @@ import folium
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
 import pandas as pd
+import numpy as np
 import streamlit.components.v1 as components
+from datetime import datetime
 
 
 # --------------------------------------------------
@@ -22,7 +24,7 @@ def normalize_issue(value):
         return "Heat"
     if "odor" in v or "smell" in v:
         return "Odour"
-    if "cycle" in v or "walk" in v:
+    if "cycling" in v or "walking" in v:
         return "Cycling / Walking"
     return "Other"
 
@@ -31,76 +33,118 @@ def normalize_issue(value):
 # HYDERABAD AUTHORITIES
 # --------------------------------------------------
 AUTHORITIES = {
-    "Air": {
-        "dept": "Telangana Pollution Control Board",
-        "phone": "040-23887500",
-        "email": "pcb@telangana.gov.in",
-    },
-    "Noise": {
-        "dept": "Hyderabad Traffic Police",
-        "phone": "100",
-        "email": "trafficpolice@hyderabad.gov.in",
-    },
-    "Heat": {
-        "dept": "GHMC – Environment Wing",
-        "phone": "040-21111111",
-        "email": "environment-ghmc@telangana.gov.in",
-    },
-    "Odour": {
-        "dept": "GHMC – Sanitation Department",
-        "phone": "040-21111111",
-        "email": "sanitation-ghmc@telangana.gov.in",
-    },
-    "Cycling / Walking": {
-        "dept": "GHMC – Urban Planning",
-        "phone": "040-21111111",
-        "email": "planning-ghmc@telangana.gov.in",
-    },
-    "Other": {
-        "dept": "Greater Hyderabad Municipal Corporation",
-        "phone": "040-21111111",
-        "email": "info-ghmc@telangana.gov.in",
-    },
+    "Air": ("Telangana Pollution Control Board", "040-23887500", "pcb@telangana.gov.in"),
+    "Noise": ("Hyderabad Traffic Police", "100", "trafficpolice@hyderabad.gov.in"),
+    "Heat": ("GHMC – Environment Wing", "040-21111111", "environment-ghmc@telangana.gov.in"),
+    "Odour": ("GHMC – Sanitation Department", "040-21111111", "sanitation-ghmc@telangana.gov.in"),
+    "Cycling / Walking": ("GHMC – Urban Planning", "040-21111111", "planning-ghmc@telangana.gov.in"),
+    "Other": ("Greater Hyderabad Municipal Corporation", "040-21111111", "info.ghmc@telangana.gov.in"),
 }
 
 
 # --------------------------------------------------
-# SOLUTION LOGIC (HYDERABAD)
+# SOLUTION ENGINE
 # --------------------------------------------------
-def primary_solution(issue, intensity):
+def generate_solutions(issue, intensity, nearby_count):
+    intensity = int(intensity)
+
+    # Base solutions by issue & intensity
+    SOLUTIONS = {
+        "Air": {
+            "low": [
+                "Monitor air quality trends.",
+                "Encourage reduced vehicle use."
+            ],
+            "medium": [
+                "Increase roadside tree cover.",
+                "Promote public transport usage."
+            ],
+            "high": [
+                "Restrict high-emission vehicles.",
+                "Introduce low-emission zones."
+            ],
+        },
+        "Noise": {
+            "low": [
+                "Monitor noise levels.",
+                "Enforce time-based restrictions."
+            ],
+            "medium": [
+                "Implement traffic calming.",
+                "Reroute heavy vehicles."
+            ],
+            "high": [
+                "Install noise barriers.",
+                "Restrict night-time heavy traffic."
+            ],
+        },
+        "Heat": {
+            "low": [
+                "Increase shaded walkways.",
+                "Promote heat awareness."
+            ],
+            "medium": [
+                "Add reflective surfaces.",
+                "Expand green infrastructure."
+            ],
+            "high": [
+                "Redesign public spaces for cooling.",
+                "Deploy cool-roof technologies."
+            ],
+        },
+        "Odour": {
+            "low": [
+                "Increase cleaning frequency.",
+                "Inspect sanitation conditions."
+            ],
+            "medium": [
+                "Improve waste collection.",
+                "Identify odor sources."
+            ],
+            "high": [
+                "Upgrade waste processing facilities.",
+                "Enforce sanitation regulations."
+            ],
+        },
+        "Cycling / Walking": {
+            "low": [
+                "Improve signage.",
+                "Fix minor surface issues."
+            ],
+            "medium": [
+                "Improve crossings.",
+                "Separate traffic flows."
+            ],
+            "high": [
+                "Build dedicated lanes.",
+                "Redesign dangerous intersections."
+            ],
+        },
+        "Other": {
+            "low": ["Monitor the situation."],
+            "medium": ["Conduct a site assessment."],
+            "high": ["Plan infrastructure intervention."],
+        },
+    }
+
+    # Intensity tier
     if intensity <= 2:
-        return "Monitor the issue and raise local awareness."
-    if intensity == 3:
-        return "Implement medium-scale corrective measures."
-    return "Immediate infrastructure-level intervention required."
+        tier = "low"
+    elif intensity == 3:
+        tier = "medium"
+    else:
+        tier = "high"
 
+    primary = SOLUTIONS[issue][tier][0]
+    additional = SOLUTIONS[issue][tier][1:]
 
-def additional_solutions(issue):
-    return {
-        "Air": [
-            "Promote public transport usage.",
-            "Increase urban green cover."
-        ],
-        "Noise": [
-            "Restrict heavy vehicles during peak hours.",
-            "Enforce noise regulations."
-        ],
-        "Heat": [
-            "Increase shaded public areas.",
-            "Introduce heat-resilient urban design."
-        ],
-        "Odour": [
-            "Improve waste segregation.",
-            "Inspect sanitation infrastructure."
-        ],
-        "Cycling / Walking": [
-            "Improve pedestrian crossings.",
-            "Develop protected cycling lanes."
-        ],
-        "Other": [
-            "Conduct a field inspection."
-        ],
-    }.get(issue, [])
+    # Escalation based on proximity
+    if nearby_count >= 3:
+        additional.append(
+            "Multiple complaints detected nearby – recommend immediate inspection and coordinated action."
+        )
+
+    return primary, additional
 
 
 # --------------------------------------------------
@@ -110,46 +154,65 @@ def render(df_all: pd.DataFrame):
 
     st.title("🗺️ Smart Complaint Solution Map – Hyderabad")
 
-    if df_all.empty:
+    if df_all is None or df_all.empty:
         st.info("No complaints available.")
         return
 
     df = df_all.copy()
-    df["issue"] = df["issue_type"].apply(normalize_issue)
-    df["intensity"] = df["intensity"].fillna(1).astype(int)
 
+    required = ["issue_type", "intensity", "lat", "lon", "timestamp", "description"]
+    for col in required:
+        if col not in df.columns:
+            st.error(f"Missing column: {col}")
+            return
+
+    df["issue"] = df["issue_type"].apply(normalize_issue)
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df["intensity"] = df["intensity"].astype(int)
+
+    # Sort & get latest
     df = df.sort_values("timestamp")
     latest = df.iloc[-1]
 
-    # --------------------------------------------------
-    # MAP
-    # --------------------------------------------------
+    # Proximity count (simple radius check)
+    distances = np.sqrt(
+        (df["lat"] - latest["lat"]) ** 2 + (df["lon"] - latest["lon"]) ** 2
+    )
+    nearby_count = (distances < 0.002).sum()  # ~200m
+
+    # Generate solutions
+    primary_solution, additional_solutions = generate_solutions(
+        latest["issue"], latest["intensity"], nearby_count
+    )
+
+    # Map
     m = folium.Map(
         location=[latest["lat"], latest["lon"]],
-        zoom_start=13
+        zoom_start=14
     )
 
     # Heatmap
-    HeatMap(
-        df[["lat", "lon"]].values.tolist(),
-        radius=25,
-        blur=18
-    ).add_to(m)
+    HeatMap(df[["lat", "lon"]].values.tolist(), radius=25, blur=18).add_to(m)
 
     # Markers
     for _, row in df.iterrows():
-        is_latest = row["timestamp"] == latest["timestamp"]
-        color = "red" if is_latest else "blue"
+        short_solution, _ = generate_solutions(
+            row["issue"], row["intensity"], nearby_count
+        )
 
         popup_html = f"""
-        <div style="font-size:13px;">
+        <div style="width:320px; font-size:14px;">
             <b>Issue:</b> {row['issue']}<br>
             <b>Intensity:</b> {row['intensity']} / 5<br>
             <b>Reported:</b> {row['timestamp']}<br><br>
             <b>Description:</b><br>
-            {row['description'] or "—"}
+            {row['description'] or "—"}<br><br>
+            <b>Suggested action:</b><br>
+            {short_solution}
         </div>
         """
+
+        color = "red" if row["timestamp"] == latest["timestamp"] else "blue"
 
         folium.Marker(
             [row["lat"], row["lon"]],
@@ -157,53 +220,47 @@ def render(df_all: pd.DataFrame):
             icon=folium.Icon(color=color, icon="info-sign"),
         ).add_to(m)
 
-    st_folium(m, height=650, use_container_width=True)
+    st_folium(m, use_container_width=True, height=650)
 
     # --------------------------------------------------
     # CLEAN SOLUTION PANEL
     # --------------------------------------------------
-    issue = latest["issue"]
-    authority = AUTHORITIES.get(issue, AUTHORITIES["Other"])
-    primary = primary_solution(issue, latest["intensity"])
-    extras = additional_solutions(issue)
+    authority = AUTHORITIES.get(latest["issue"], AUTHORITIES["Other"])
 
-    extras_html = "".join(f"<li>{e}</li>" for e in extras)
-
-    html_block = f"""
+    html = f"""
     <div style="
-        background:#f9fafb;
+        background:#ffffff;
         padding:22px;
         border-radius:12px;
-        border:1px solid #e5e7eb;
+        border:1px solid #ddd;
+        margin-top:20px;
         font-family:Arial;
     ">
-
-        <h3 style="margin-top:0;">Latest Report – Recommended Actions</h3>
+        <h3>📝 Latest Report – Recommended Actions</h3>
 
         <p>
-            <b>Issue:</b> {issue}<br>
+            <b>Issue:</b> {latest['issue']}<br>
             <b>Intensity:</b> {latest['intensity']} / 5<br>
             <b>Reported on:</b> {latest['timestamp']}
         </p>
 
         <hr>
 
-        <p><b>Primary action</b><br>
-        {primary}</p>
+        <p><b>Primary action</b><br>{primary_solution}</p>
 
         <p><b>Additional actions</b></p>
-        <ul>{extras_html}</ul>
+        <ul>
+            {''.join(f'<li>{s}</li>' for s in additional_solutions)}
+        </ul>
 
         <hr>
 
-        <p>
-            <b>Responsible authority</b><br>
-            {authority['dept']}<br>
-            📞 {authority['phone']}<br>
-            📧 {authority['email']}
+        <p><b>Responsible authority</b><br>
+        {authority[0]}<br>
+        📞 {authority[1]}<br>
+        📧 {authority[2]}
         </p>
-
     </div>
     """
 
-    components.html(html_block, height=420)
+    components.html(html, height=380)
