@@ -5,9 +5,10 @@ import folium
 from folium.plugins import MarkerCluster
 import streamlit as st
 from streamlit_folium import st_folium
+import urllib.parse
 
 # ---------------------------------------------------------
-# PAGE CONFIG (must be first)
+# PAGE CONFIG
 # ---------------------------------------------------------
 st.set_page_config(layout="wide")
 
@@ -30,7 +31,19 @@ from modules import (
 )
 
 # ---------------------------------------------------------
-# GLOBAL STYLE
+# AUTHORITY CONTACTS (Hyderabad)
+# ---------------------------------------------------------
+AUTHORITY_EMAILS = {
+    "Air quality": "pcb@telangana.gov.in",
+    "Noise": "trafficpolice@hyderabad.gov.in",
+    "Heat": "environment-ghmc@telangana.gov.in",
+    "Cycling / Walking": "planning-ghmc@telangana.gov.in",
+    "Odor": "sanitation-ghmc@telangana.gov.in",
+    "Other": "info.ghmc@telangana.gov.in",
+}
+
+# ---------------------------------------------------------
+# GLOBAL STYLE (GREEN THEME – STABLE)
 # ---------------------------------------------------------
 def apply_global_style():
     st.markdown(
@@ -46,8 +59,8 @@ def apply_global_style():
         }
 
         [data-testid="stSidebar"] {
-            background-color: #e1f5dd;
-            border-right: 1px solid #c4e4be;
+            background-color: #d8f3dc;
+            border-right: 1px solid #b7e4c7;
         }
 
         .top-banner {
@@ -56,16 +69,26 @@ def apply_global_style():
             left: 0;
             right: 0;
             z-index: 1000;
-            background-color: #d5f5c8;
-            padding: 0.75rem 2rem;
-            border-bottom: 1px solid #b9e6ae;
+            background-color: #95d5b2;
+            padding: 0.8rem 2rem;
+            border-bottom: 1px solid #74c69d;
+        }
+
+        .top-banner h1 {
+            margin: 0;
+            color: #1b4332;
+        }
+
+        .top-banner p {
+            margin: 0;
+            color: #2d6a4f;
         }
 
         .report-card {
             background-color: white;
             border-radius: 12px;
             padding: 1rem;
-            border: 1px solid #cfe7c7;
+            border: 1px solid #b7e4c7;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
         </style>
@@ -148,7 +171,7 @@ def render_report_home():
             folium.CircleMarker(
                 [row["lat"], row["lon"]],
                 radius=5,
-                color=COLOR_MAP.get(row["issue_type"], "#4caf50"),
+                color=COLOR_MAP.get(row["issue_type"], "#2d6a4f"),
                 fill=True,
                 fill_opacity=0.8,
             ).add_to(cluster)
@@ -180,22 +203,21 @@ def render_report_home():
         if not st.session_state["location"]:
             st.info("Search for a place or click on the map to report an issue.")
         else:
-            issue_type = st.selectbox(
-                "Issue type",
-                [
-                    "Air quality",
-                    "Noise",
-                    "Heat",
-                    "Cycling / Walking",
-                    "Odor",
-                    "Other",
-                ],
-            )
+            ISSUE_TYPES = [
+                "Air quality",
+                "Noise",
+                "Heat",
+                "Cycling / Walking",
+                "Odor",
+                "Other",
+            ]
+
+            issue_type = st.selectbox("Issue type", ISSUE_TYPES)
             intensity = st.slider("Intensity (1–5)", 1, 5, 3)
             description = st.text_area("Description (optional)")
-            photo = st.file_uploader(
-                "Upload a photo (optional)", ["jpg", "jpeg", "png"]
-            )
+            photo = st.file_uploader("Upload a photo (optional)", ["jpg", "jpeg", "png"])
+
+            send_email = st.checkbox("Send this complaint to authorities")
 
             if st.button("Submit complaint"):
                 photo_path = None
@@ -216,6 +238,24 @@ def render_report_home():
                 )
 
                 st.success("Complaint submitted successfully!")
+
+                if send_email:
+                    email = AUTHORITY_EMAILS.get(issue_type, AUTHORITY_EMAILS["Other"])
+                    subject = f"Citizen complaint – {issue_type}"
+                    body = f"""
+Location: {st.session_state["location"]["lat"]}, {st.session_state["location"]["lon"]}
+Intensity: {intensity}
+
+Description:
+{description or "No description provided."}
+"""
+                    mailto = (
+                        f"mailto:{email}?"
+                        f"subject={urllib.parse.quote(subject)}&"
+                        f"body={urllib.parse.quote(body)}"
+                    )
+                    st.markdown(f"[📧 Click here to send email to authority]({mailto})")
+
                 st.session_state["location"] = None
 
         st.markdown("</div>", unsafe_allow_html=True)
