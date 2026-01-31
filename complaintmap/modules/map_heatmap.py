@@ -6,35 +6,33 @@ import pandas as pd
 import streamlit.components.v1 as components
 
 
-# ---------------------------------------------------
+# --------------------------------------------------
 # NORMALIZE ISSUE TYPES
-# ---------------------------------------------------
+# --------------------------------------------------
 def normalize_issue(value):
     if not isinstance(value, str):
         return "Other"
 
-    v = value.strip().lower()
-
-    if "air" in v or "pollution" in v:
+    v = value.lower().strip()
+    if "air" in v:
         return "Air"
-    if "noise" in v or "bruit" in v:
+    if "noise" in v:
         return "Noise"
-    if "heat" in v or "chaleur" in v or "temperature" in v:
+    if "heat" in v:
         return "Heat"
-    if "odor" in v or "odour" in v or "odeur" in v or "smell" in v:
+    if "odor" in v or "smell" in v:
         return "Odour"
-    if "cycling" in v or "walking" in v or "pedestrian" in v:
+    if "cycle" in v or "walk" in v:
         return "Cycling / Walking"
-
     return "Other"
 
 
-# ---------------------------------------------------
+# --------------------------------------------------
 # HYDERABAD AUTHORITIES
-# ---------------------------------------------------
+# --------------------------------------------------
 AUTHORITIES = {
     "Air": {
-        "dept": "Telangana Pollution Control Board (TSPCB)",
+        "dept": "Telangana Pollution Control Board",
         "phone": "040-23887500",
         "email": "pcb@telangana.gov.in",
     },
@@ -59,109 +57,84 @@ AUTHORITIES = {
         "email": "planning-ghmc@telangana.gov.in",
     },
     "Other": {
-        "dept": "Greater Hyderabad Municipal Corporation (GHMC)",
+        "dept": "Greater Hyderabad Municipal Corporation",
         "phone": "040-21111111",
-        "email": "info.ghmc@telangana.gov.in",
+        "email": "info-ghmc@telangana.gov.in",
     },
 }
 
 
-# ---------------------------------------------------
-# SOLUTION GENERATOR (SHORT)
-# ---------------------------------------------------
+# --------------------------------------------------
+# SOLUTION GENERATORS (HYDERABAD-SPECIFIC)
+# --------------------------------------------------
 def generate_solution(issue, intensity):
-    intensity = int(intensity)
-
-    SOLUTIONS = {
-        "Air": {
-            "low": "Encourage public transport and reduced vehicle use.",
-            "medium": "Increase roadside greenery and emission checks.",
-            "high": "Restrict polluting vehicles and inspect industries.",
-        },
-        "Noise": {
-            "low": "Monitor noise levels and raise awareness.",
-            "medium": "Traffic calming and speed regulation.",
-            "high": "Restrict heavy vehicles and enforce noise limits.",
-        },
-        "Heat": {
-            "low": "Increase shaded areas and drinking water points.",
-            "medium": "Expand tree cover and reflective surfaces.",
-            "high": "Implement cool roofs and green corridors.",
-        },
-        "Odour": {
-            "low": "Increase cleaning frequency.",
-            "medium": "Inspect waste collection points.",
-            "high": "Upgrade waste processing and sanitation systems.",
-        },
-        "Cycling / Walking": {
-            "low": "Improve signage and markings.",
-            "medium": "Enhance crossings and footpaths.",
-            "high": "Develop protected cycling lanes.",
-        },
-        "Other": {
-            "low": "Monitor the situation.",
-            "medium": "Conduct a local assessment.",
-            "high": "Plan infrastructure-level intervention.",
-        },
-    }
-
     if intensity <= 2:
-        tier = "low"
-    elif intensity == 3:
-        tier = "medium"
-    else:
-        tier = "high"
+        return {
+            "Air": "Monitor local emissions and promote low-pollution mobility.",
+            "Noise": "Enforce local noise regulations and awareness.",
+            "Heat": "Increase shaded areas and drinking water points.",
+            "Odour": "Inspect sanitation conditions.",
+            "Cycling / Walking": "Improve signage and minor repairs.",
+            "Other": "Monitor the situation."
+        }.get(issue, "Monitor the situation.")
 
-    return SOLUTIONS.get(issue, SOLUTIONS["Other"])[tier]
+    if intensity == 3:
+        return {
+            "Air": "Reduce vehicle emissions and improve green buffers.",
+            "Noise": "Traffic calming and time-based restrictions.",
+            "Heat": "Add tree cover and cool roofing.",
+            "Odour": "Improve waste collection and treatment.",
+            "Cycling / Walking": "Improve crossings and lighting.",
+            "Other": "Conduct a local assessment."
+        }.get(issue, "Conduct a local assessment.")
+
+    return {
+        "Air": "Restrict high-emission vehicles and enforce pollution control.",
+        "Noise": "Install noise barriers and restrict heavy vehicles.",
+        "Heat": "Urban redesign with cooling infrastructure.",
+        "Odour": "Upgrade waste processing facilities.",
+        "Cycling / Walking": "Build protected lanes and redesign streets.",
+        "Other": "Plan infrastructure-level intervention."
+    }.get(issue, "Plan infrastructure-level intervention.")
 
 
-# ---------------------------------------------------
-# DETAILED SOLUTIONS + AUTHORITY
-# ---------------------------------------------------
-def generate_detailed_solutions(issue):
-    actions = {
+def additional_actions(issue):
+    return {
         "Air": [
-            "Promote electric mobility.",
-            "Strengthen city-wide air monitoring.",
+            "Promote public transport and EV adoption.",
+            "Increase urban greenery."
         ],
         "Noise": [
-            "Introduce time-based traffic restrictions.",
-            "Increase enforcement in residential zones.",
+            "Enforce silent zones near hospitals and schools.",
+            "Restrict night-time construction."
         ],
         "Heat": [
-            "Expand urban green spaces.",
-            "Implement city heat-action plans.",
+            "Deploy cool pavements.",
+            "Expand urban green corridors."
         ],
         "Odour": [
             "Improve waste segregation.",
-            "Inspect odor-generating facilities.",
+            "Inspect odor-generating facilities."
         ],
         "Cycling / Walking": [
-            "Develop pedestrian-first streets.",
-            "Improve last-mile connectivity.",
+            "Add protected cycling lanes.",
+            "Improve pedestrian crossings."
         ],
         "Other": [
-            "Conduct site-specific investigation.",
-            "Coordinate with relevant departments.",
+            "Escalate to city authorities."
         ],
-    }
-
-    return actions.get(issue, actions["Other"]), AUTHORITIES.get(issue, AUTHORITIES["Other"])
+    }.get(issue, [])
 
 
-# ---------------------------------------------------
-# MAIN RENDER
-# ---------------------------------------------------
+# --------------------------------------------------
+# MAIN RENDER FUNCTION
+# --------------------------------------------------
 def render(df_all: pd.DataFrame):
 
-    st.title("🧠 Smart Complaint Solution Map – Hyderabad")
-    st.markdown(
-        "<h4 style='color: gray; margin-top:-10px;'>Citizen reports, hotspots, and proposed actions</h4>",
-        unsafe_allow_html=True,
-    )
+    st.title("🗺️ Smart Complaint Solution Map – Hyderabad")
 
-    if df_all is None or df_all.empty:
-        st.info("No complaint data available.")
+    if df_all.empty:
+        st.info("No complaints available.")
         return
 
     df = df_all.copy()
@@ -169,36 +142,36 @@ def render(df_all: pd.DataFrame):
     df["intensity"] = df["intensity"].fillna(1).astype(int)
 
     df_sorted = df.sort_values("timestamp")
-    grouped = df_sorted.groupby(["lat", "lon", "issue"], as_index=False).last()
-    latest_row = grouped.loc[grouped["timestamp"].idxmax()]
+    latest = df_sorted.iloc[-1]
 
-    # ---------------- MAP ----------------
+    # --------------------------------------------------
+    # MAP
+    # --------------------------------------------------
     m = folium.Map(
-        location=[latest_row["lat"], latest_row["lon"]],
-        zoom_start=13,
+        location=[latest["lat"], latest["lon"]],
+        zoom_start=13
     )
 
-    # Heatmap of all complaints
+    # Heatmap of reported issues
     HeatMap(
-        grouped[["lat", "lon"]].values.tolist(),
+        df[["lat", "lon"]].values.tolist(),
         radius=25,
-        blur=18,
+        blur=18
     ).add_to(m)
 
     # Markers
-    for _, row in grouped.iterrows():
-        is_latest = row["timestamp"] == latest_row["timestamp"]
+    for _, row in df.iterrows():
+        is_latest = row["timestamp"] == latest["timestamp"]
         color = "red" if is_latest else "blue"
 
         popup_html = f"""
-        <div style="width:320px; font-family:Arial;">
+        <div style="width:260px;">
             <b>Issue:</b> {row['issue']}<br>
             <b>Intensity:</b> {row['intensity']} / 5<br>
-            <b>Reported on:</b> {row['timestamp'].strftime('%Y-%m-%d %H:%M')}<br><br>
+            <b>Reported on:</b> {row['timestamp']}<br><br>
             <b>Description:</b><br>
-            {row.get('description') or 'No description provided.'}
-            <hr>
-            <b>Suggested solution:</b><br>
+            {row['description'] or '—'}<br><br>
+            <b>Suggested action:</b><br>
             {generate_solution(row['issue'], row['intensity'])}
         </div>
         """
@@ -209,38 +182,62 @@ def render(df_all: pd.DataFrame):
             icon=folium.Icon(color=color, icon="info-sign"),
         ).add_to(m)
 
-    st_folium(m, width=1400, height=650)
+    st_folium(m, height=650, use_container_width=True)
 
-    # ---------------- BOTTOM PANEL ----------------
-    st.subheader("📌 Latest Report – Recommended Actions")
-
-    primary_solution = generate_solution(
-        latest_row["issue"],
-        latest_row["intensity"],
-    )
-
-    additional, authority = generate_detailed_solutions(latest_row["issue"])
-    additional_html = "".join([f"<li>{s}</li>" for s in additional])
+    # --------------------------------------------------
+    # BOTTOM SOLUTION PANEL
+    # --------------------------------------------------
+    issue = latest["issue"]
+    authority = AUTHORITIES.get(issue, AUTHORITIES["Other"])
+    primary_solution = generate_solution(issue, latest["intensity"])
+    extras = additional_actions(issue)
+    extras_html = "".join(f"<li>{e}</li>" for e in extras)
 
     html_block = f"""
-    <div style="background:white; padding:20px; border-radius:12px;">
-        <b>Issue:</b> {latest_row["issue"]}<br>
-        <b>Intensity:</b> {latest_row["intensity"]}<br>
-        <b>Reported on:</b> {latest_row["timestamp"].strftime('%Y-%m-%d %H:%M')}<br><br>
+    <div style="
+        background:#f4f6f8;
+        padding:22px;
+        border-radius:14px;
+        font-family:Arial;
+        border:1px solid #d1d5db;
+    ">
 
-        <b>Primary action:</b><br>
-        {primary_solution}
+        <div style="
+            background:#e5e7eb;
+            padding:14px;
+            border-radius:10px;
+            font-weight:700;
+        ">
+            📝 Latest Report – Recommended Actions
+        </div>
 
-        <br><br>
-        <b>Additional actions:</b>
-        <ul>{additional_html}</ul>
+        <div style="margin-top:14px;">
+            <b>Issue:</b> <span style="color:#b91c1c;">{issue}</span><br>
+            <b>Intensity:</b> {latest['intensity']} / 5<br>
+            <b>Reported on:</b> {latest['timestamp']}
+        </div>
 
         <hr>
-        <b>Responsible Authority:</b><br>
-        {authority["dept"]}<br>
-        📞 {authority["phone"]}<br>
-        📧 {authority["email"]}
+
+        <div style="background:white; padding:14px; border-left:5px solid #16a34a; border-radius:10px;">
+            <b>Primary action</b><br><br>
+            {primary_solution}
+        </div>
+
+        <div style="background:white; padding:14px; margin-top:12px; border-left:5px solid #2563eb; border-radius:10px;">
+            <b>Additional actions</b>
+            <ul>{extras_html}</ul>
+        </div>
+
+        <div style="background:#fff7ed; padding:14px; margin-top:14px;
+                    border-left:5px solid #f97316; border-radius:10px;">
+            <b>Responsible authority</b><br><br>
+            <b>{authority['dept']}</b><br>
+            📞 {authority['phone']}<br>
+            📧 {authority['email']}
+        </div>
+
     </div>
     """
 
-    components.html(html_block, height=340)
+    components.html(html_block, height=420)
