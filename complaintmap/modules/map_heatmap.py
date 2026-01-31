@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 
 
 # ---------------------------------------------------
-# NORMALIZE ISSUE TYPES (handles mixed inputs)
+# NORMALIZE ISSUE TYPES
 # ---------------------------------------------------
 def normalize_issue(value):
     if not isinstance(value, str):
@@ -30,7 +30,7 @@ def normalize_issue(value):
 
 
 # ---------------------------------------------------
-# HYDERABAD-SPECIFIC AUTHORITIES
+# HYDERABAD AUTHORITIES
 # ---------------------------------------------------
 AUTHORITIES = {
     "Air": {
@@ -67,36 +67,36 @@ AUTHORITIES = {
 
 
 # ---------------------------------------------------
-# SHORT SOLUTIONS (marker popups)
+# SOLUTION GENERATOR (SHORT)
 # ---------------------------------------------------
 def generate_solution(issue, intensity):
     intensity = int(intensity)
 
     SOLUTIONS = {
         "Air": {
-            "low": "Encourage reduced vehicle usage and public transport.",
-            "medium": "Increase roadside greenery and monitor emissions.",
-            "high": "Restrict high-emission vehicles and inspect industries.",
+            "low": "Encourage public transport and reduced vehicle use.",
+            "medium": "Increase roadside greenery and emission checks.",
+            "high": "Restrict polluting vehicles and inspect industries.",
         },
         "Noise": {
-            "low": "Monitor noise levels and awareness campaigns.",
+            "low": "Monitor noise levels and raise awareness.",
             "medium": "Traffic calming and speed regulation.",
             "high": "Restrict heavy vehicles and enforce noise limits.",
         },
         "Heat": {
             "low": "Increase shaded areas and drinking water points.",
             "medium": "Expand tree cover and reflective surfaces.",
-            "high": "Urban redesign with cool roofs and green corridors.",
+            "high": "Implement cool roofs and green corridors.",
         },
         "Odour": {
             "low": "Increase cleaning frequency.",
             "medium": "Inspect waste collection points.",
-            "high": "Upgrade waste processing and enforce sanitation rules.",
+            "high": "Upgrade waste processing and sanitation systems.",
         },
         "Cycling / Walking": {
             "low": "Improve signage and markings.",
-            "medium": "Enhance crossings and footpath continuity.",
-            "high": "Develop protected cycling lanes and redesign streets.",
+            "medium": "Enhance crossings and footpaths.",
+            "high": "Develop protected cycling lanes.",
         },
         "Other": {
             "low": "Monitor the situation.",
@@ -116,49 +116,47 @@ def generate_solution(issue, intensity):
 
 
 # ---------------------------------------------------
-# DETAILED SOLUTIONS + AUTHORITY CONTACTS
+# DETAILED SOLUTIONS + AUTHORITY
 # ---------------------------------------------------
 def generate_detailed_solutions(issue):
-    authority = AUTHORITIES.get(issue, AUTHORITIES["Other"])
-
     actions = {
         "Air": [
-            "Promote electric mobility and public transport.",
-            "Strengthen air-quality monitoring across the city.",
+            "Promote electric mobility.",
+            "Strengthen city-wide air monitoring.",
         ],
         "Noise": [
-            "Implement time-based traffic restrictions.",
-            "Increase enforcement of noise regulations.",
+            "Introduce time-based traffic restrictions.",
+            "Increase enforcement in residential zones.",
         ],
         "Heat": [
-            "Expand urban green spaces and water bodies.",
-            "Adopt heat-action plans in vulnerable areas.",
+            "Expand urban green spaces.",
+            "Implement city heat-action plans.",
         ],
         "Odour": [
-            "Improve waste segregation and disposal.",
-            "Inspect and regulate odor-generating facilities.",
+            "Improve waste segregation.",
+            "Inspect odor-generating facilities.",
         ],
         "Cycling / Walking": [
-            "Develop safe pedestrian-first streets.",
+            "Develop pedestrian-first streets.",
             "Improve last-mile connectivity.",
         ],
         "Other": [
             "Conduct site-specific investigation.",
-            "Coordinate with relevant city departments.",
+            "Coordinate with relevant departments.",
         ],
     }
 
-    return actions.get(issue, actions["Other"]), authority
+    return actions.get(issue, actions["Other"]), AUTHORITIES.get(issue, AUTHORITIES["Other"])
 
 
 # ---------------------------------------------------
-# MAIN RENDER FUNCTION
+# MAIN RENDER
 # ---------------------------------------------------
 def render(df_all: pd.DataFrame):
 
     st.title("🧠 Smart Complaint Solution Map – Hyderabad")
     st.markdown(
-        "<h4 style='color: gray; margin-top:-10px;'>Citizen-reported issues and proposed actions</h4>",
+        "<h4 style='color: gray; margin-top:-10px;'>Citizen reports, hotspots, and proposed actions</h4>",
         unsafe_allow_html=True,
     )
 
@@ -167,13 +165,6 @@ def render(df_all: pd.DataFrame):
         return
 
     df = df_all.copy()
-
-    required_cols = ["issue_type", "intensity", "lat", "lon", "timestamp"]
-    for col in required_cols:
-        if col not in df.columns:
-            st.error(f"Missing required column: {col}")
-            return
-
     df["issue"] = df["issue_type"].apply(normalize_issue)
     df["intensity"] = df["intensity"].fillna(1).astype(int)
 
@@ -187,34 +178,40 @@ def render(df_all: pd.DataFrame):
         zoom_start=13,
     )
 
-    # Heatmap of complaints
+    # Heatmap of all complaints
     HeatMap(
         grouped[["lat", "lon"]].values.tolist(),
         radius=25,
         blur=18,
     ).add_to(m)
 
-    # Markers with solutions
+    # Markers
     for _, row in grouped.iterrows():
-        solution = generate_solution(row["issue"], row["intensity"])
+        is_latest = row["timestamp"] == latest_row["timestamp"]
+        color = "red" if is_latest else "blue"
+
         popup_html = f"""
-        <div style="width:300px;">
+        <div style="width:320px; font-family:Arial;">
             <b>Issue:</b> {row['issue']}<br>
-            <b>Intensity:</b> {row['intensity']}<br><br>
-            <b>Suggested action:</b><br>
-            {solution}
+            <b>Intensity:</b> {row['intensity']} / 5<br>
+            <b>Reported on:</b> {row['timestamp'].strftime('%Y-%m-%d %H:%M')}<br><br>
+            <b>Description:</b><br>
+            {row.get('description') or 'No description provided.'}
+            <hr>
+            <b>Suggested solution:</b><br>
+            {generate_solution(row['issue'], row['intensity'])}
         </div>
         """
 
         folium.Marker(
             [row["lat"], row["lon"]],
             popup=popup_html,
-            icon=folium.Icon(color="blue", icon="info-sign"),
+            icon=folium.Icon(color=color, icon="info-sign"),
         ).add_to(m)
 
     st_folium(m, width=1400, height=650)
 
-    # ---------------- SOLUTION PANEL ----------------
+    # ---------------- BOTTOM PANEL ----------------
     st.subheader("📌 Latest Report – Recommended Actions")
 
     primary_solution = generate_solution(
@@ -223,13 +220,13 @@ def render(df_all: pd.DataFrame):
     )
 
     additional, authority = generate_detailed_solutions(latest_row["issue"])
-
     additional_html = "".join([f"<li>{s}</li>" for s in additional])
 
     html_block = f"""
     <div style="background:white; padding:20px; border-radius:12px;">
         <b>Issue:</b> {latest_row["issue"]}<br>
-        <b>Intensity:</b> {latest_row["intensity"]}<br><br>
+        <b>Intensity:</b> {latest_row["intensity"]}<br>
+        <b>Reported on:</b> {latest_row["timestamp"].strftime('%Y-%m-%d %H:%M')}<br><br>
 
         <b>Primary action:</b><br>
         {primary_solution}
@@ -246,4 +243,4 @@ def render(df_all: pd.DataFrame):
     </div>
     """
 
-    components.html(html_block, height=300)
+    components.html(html_block, height=340)
