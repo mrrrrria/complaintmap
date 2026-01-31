@@ -1,194 +1,249 @@
-import os
-import requests
-import folium
 import streamlit as st
+import folium
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
+import pandas as pd
+import streamlit.components.v1 as components
 
-from config import DEFAULT_ZOOM, COLOR_MAP
 
-# -------------------------------------------------
-# HYDERABAD BOUNDING BOX (GHMC area)
-# -------------------------------------------------
-HYD_LAT_MIN = 17.2
-HYD_LAT_MAX = 17.6
-HYD_LON_MIN = 78.2
-HYD_LON_MAX = 78.7
+# ---------------------------------------------------
+# NORMALIZE ISSUE TYPES (handles mixed inputs)
+# ---------------------------------------------------
+def normalize_issue(value):
+    if not isinstance(value, str):
+        return "Other"
 
-# -------------------------------------------------
-# OpenAQ config
-# -------------------------------------------------
-PARAM_IDS = {
-    "pm25": 2,
-    "pm10": 1,
+    v = value.strip().lower()
+
+    if "air" in v or "pollution" in v:
+        return "Air"
+    if "noise" in v or "bruit" in v:
+        return "Noise"
+    if "heat" in v or "chaleur" in v or "temperature" in v:
+        return "Heat"
+    if "odor" in v or "odour" in v or "odeur" in v or "smell" in v:
+        return "Odour"
+    if "cycling" in v or "walking" in v or "pedestrian" in v:
+        return "Cycling / Walking"
+
+    return "Other"
+
+
+# ---------------------------------------------------
+# HYDERABAD-SPECIFIC AUTHORITIES
+# ---------------------------------------------------
+AUTHORITIES = {
+    "Air": {
+        "dept": "Telangana Pollution Control Board (TSPCB)",
+        "phone": "040-23887500",
+        "email": "pcb@telangana.gov.in",
+    },
+    "Noise": {
+        "dept": "Hyderabad Traffic Police",
+        "phone": "100",
+        "email": "trafficpolice@hyderabad.gov.in",
+    },
+    "Heat": {
+        "dept": "GHMC – Environment Wing",
+        "phone": "040-21111111",
+        "email": "environment-ghmc@telangana.gov.in",
+    },
+    "Odour": {
+        "dept": "GHMC – Sanitation Department",
+        "phone": "040-21111111",
+        "email": "sanitation-ghmc@telangana.gov.in",
+    },
+    "Cycling / Walking": {
+        "dept": "GHMC – Urban Planning",
+        "phone": "040-21111111",
+        "email": "planning-ghmc@telangana.gov.in",
+    },
+    "Other": {
+        "dept": "Greater Hyderabad Municipal Corporation (GHMC)",
+        "phone": "040-21111111",
+        "email": "info.ghmc@telangana.gov.in",
+    },
 }
 
-MAX_LOCATIONS = 500
 
+# ---------------------------------------------------
+# SHORT SOLUTIONS (marker popups)
+# ---------------------------------------------------
+def generate_solution(issue, intensity):
+    intensity = int(intensity)
 
-def get_openaq_api_key():
-    key = os.getenv("OPENAQ_API_KEY")
-    if key:
-        return key
-    try:
-        from config import OPENAQ_API_KEY
-        return OPENAQ_API_KEY
-    except Exception:
-        return None
-
-
-# -------------------------------------------------
-# OpenAQ helpers
-# -------------------------------------------------
-def fetch_locations_hyderabad(parameter):
-    api_key = get_openaq_api_key()
-    if not api_key:
-        raise RuntimeError("Missing OpenAQ API key")
-
-    url = "https://api.openaq.org/v3/locations"
-    params = {
-        "parameters_id": PARAM_IDS[parameter],
-        "limit": MAX_LOCATIONS,
-        "iso": "IN",
+    SOLUTIONS = {
+        "Air": {
+            "low": "Encourage reduced vehicle usage and public transport.",
+            "medium": "Increase roadside greenery and monitor emissions.",
+            "high": "Restrict high-emission vehicles and inspect industries.",
+        },
+        "Noise": {
+            "low": "Monitor noise levels and awareness campaigns.",
+            "medium": "Traffic calming and speed regulation.",
+            "high": "Restrict heavy vehicles and enforce noise limits.",
+        },
+        "Heat": {
+            "low": "Increase shaded areas and drinking water points.",
+            "medium": "Expand tree cover and reflective surfaces.",
+            "high": "Urban redesign with cool roofs and green corridors.",
+        },
+        "Odour": {
+            "low": "Increase cleaning frequency.",
+            "medium": "Inspect waste collection points.",
+            "high": "Upgrade waste processing and enforce sanitation rules.",
+        },
+        "Cycling / Walking": {
+            "low": "Improve signage and markings.",
+            "medium": "Enhance crossings and footpath continuity.",
+            "high": "Develop protected cycling lanes and redesign streets.",
+        },
+        "Other": {
+            "low": "Monitor the situation.",
+            "medium": "Conduct a local assessment.",
+            "high": "Plan infrastructure-level intervention.",
+        },
     }
-    headers = {"X-API-Key": api_key}
 
-    r = requests.get(url, params=params, headers=headers, timeout=15)
-    r.raise_for_status()
-    data = r.json()
+    if intensity <= 2:
+        tier = "low"
+    elif intensity == 3:
+        tier = "medium"
+    else:
+        tier = "high"
 
-    locations = []
-    for loc in data.get("results", []):
-        coords = loc.get("coordinates") or {}
-        lat, lon = coords.get("latitude"), coords.get("longitude")
-        if lat is None or lon is None:
-            continue
-
-        lat, lon = float(lat), float(lon)
-
-        if HYD_LAT_MIN <= lat <= HYD_LAT_MAX and HYD_LON_MIN <= lon <= HYD_LON_MAX:
-            locations.append({"id": loc["id"], "lat": lat, "lon": lon})
-
-    return locations
+    return SOLUTIONS.get(issue, SOLUTIONS["Other"])[tier]
 
 
-def fetch_sensor_id(location_id, parameter):
-    api_key = get_openaq_api_key()
-    url = f"https://api.openaq.org/v3/locations/{location_id}/sensors"
-    params = {"parameters_id": PARAM_IDS[parameter], "limit": 1}
-    headers = {"X-API-Key": api_key}
+# ---------------------------------------------------
+# DETAILED SOLUTIONS + AUTHORITY CONTACTS
+# ---------------------------------------------------
+def generate_detailed_solutions(issue):
+    authority = AUTHORITIES.get(issue, AUTHORITIES["Other"])
 
-    r = requests.get(url, params=params, headers=headers, timeout=15)
-    r.raise_for_status()
-    res = r.json().get("results", [])
-    return res[0]["id"] if res else None
+    actions = {
+        "Air": [
+            "Promote electric mobility and public transport.",
+            "Strengthen air-quality monitoring across the city.",
+        ],
+        "Noise": [
+            "Implement time-based traffic restrictions.",
+            "Increase enforcement of noise regulations.",
+        ],
+        "Heat": [
+            "Expand urban green spaces and water bodies.",
+            "Adopt heat-action plans in vulnerable areas.",
+        ],
+        "Odour": [
+            "Improve waste segregation and disposal.",
+            "Inspect and regulate odor-generating facilities.",
+        ],
+        "Cycling / Walking": [
+            "Develop safe pedestrian-first streets.",
+            "Improve last-mile connectivity.",
+        ],
+        "Other": [
+            "Conduct site-specific investigation.",
+            "Coordinate with relevant city departments.",
+        ],
+    }
 
-
-def fetch_latest_value(sensor_id):
-    api_key = get_openaq_api_key()
-    url = f"https://api.openaq.org/v3/sensors/{sensor_id}/measurements/hourly"
-    headers = {"X-API-Key": api_key}
-    params = {"limit": 1, "sort_order": "desc"}
-
-    r = requests.get(url, params=params, headers=headers, timeout=15)
-    r.raise_for_status()
-    res = r.json().get("results", [])
-    return float(res[0]["value"]) if res else None
-
-
-def fetch_aqi_points_hyderabad(parameter):
-    points = []
-    locations = fetch_locations_hyderabad(parameter)
-
-    for loc in locations:
-        try:
-            sensor_id = fetch_sensor_id(loc["id"], parameter)
-            if not sensor_id:
-                continue
-            value = fetch_latest_value(sensor_id)
-            if value is None:
-                continue
-            points.append([loc["lat"], loc["lon"], value])
-        except Exception:
-            continue
-
-    return points
+    return actions.get(issue, actions["Other"]), authority
 
 
-# -------------------------------------------------
+# ---------------------------------------------------
 # MAIN RENDER FUNCTION
-# -------------------------------------------------
-def render(df_all):
-    st.header("🌍 Environmental Heatmap – Hyderabad")
+# ---------------------------------------------------
+def render(df_all: pd.DataFrame):
 
-    pollutant = st.selectbox(
-        "Air pollutant (OpenAQ – real time)",
-        ["pm25", "pm10"],
-        index=0,
+    st.title("🧠 Smart Complaint Solution Map – Hyderabad")
+    st.markdown(
+        "<h4 style='color: gray; margin-top:-10px;'>Citizen-reported issues and proposed actions</h4>",
+        unsafe_allow_html=True,
     )
 
-    if not get_openaq_api_key():
-        st.error("Missing OpenAQ API key")
+    if df_all is None or df_all.empty:
+        st.info("No complaint data available.")
         return
 
-    if st.button("🔄 Load / Refresh air quality data"):
-        with st.spinner("Fetching real-time air quality for Hyderabad…"):
-            st.session_state["aqi_points"] = fetch_aqi_points_hyderabad(pollutant)
+    df = df_all.copy()
 
-    aqi_points = st.session_state.get("aqi_points")
+    required_cols = ["issue_type", "intensity", "lat", "lon", "timestamp"]
+    for col in required_cols:
+        if col not in df.columns:
+            st.error(f"Missing required column: {col}")
+            return
 
-    if not aqi_points:
-        st.info("Click **Load / Refresh** to display air pollution data.")
-        return
+    df["issue"] = df["issue_type"].apply(normalize_issue)
+    df["intensity"] = df["intensity"].fillna(1).astype(int)
 
-    # Normalize AQI values
-    values = [p[2] for p in aqi_points]
-    vmin, vmax = min(values), max(values)
+    df_sorted = df.sort_values("timestamp")
+    grouped = df_sorted.groupby(["lat", "lon", "issue"], as_index=False).last()
+    latest_row = grouped.loc[grouped["timestamp"].idxmax()]
 
-    aqi_heat = (
-        [[p[0], p[1], 1.0] for p in aqi_points]
-        if vmax == vmin
-        else [[p[0], p[1], (p[2] - vmin) / (vmax - vmin)] for p in aqi_points]
+    # ---------------- MAP ----------------
+    m = folium.Map(
+        location=[latest_row["lat"], latest_row["lon"]],
+        zoom_start=13,
     )
 
-    # Map center = Hyderabad
-    center = [17.385, 78.4867]
-    m = folium.Map(location=center, zoom_start=DEFAULT_ZOOM)
-
-    # AQI heatmap
+    # Heatmap of complaints
     HeatMap(
-        aqi_heat,
-        radius=18,
-        blur=15,
-        gradient={0.0: "green", 0.5: "yellow", 1.0: "red"},
+        grouped[["lat", "lon"]].values.tolist(),
+        radius=25,
+        blur=18,
     ).add_to(m)
 
-    # Citizen complaints heatmap
-    if not df_all.empty:
-        issue_heat = [
-            [row["lat"], row["lon"], row["intensity"]]
-            for _, row in df_all.iterrows()
-        ]
-        HeatMap(issue_heat, radius=12, blur=10).add_to(m)
+    # Markers with solutions
+    for _, row in grouped.iterrows():
+        solution = generate_solution(row["issue"], row["intensity"])
+        popup_html = f"""
+        <div style="width:300px;">
+            <b>Issue:</b> {row['issue']}<br>
+            <b>Intensity:</b> {row['intensity']}<br><br>
+            <b>Suggested action:</b><br>
+            {solution}
+        </div>
+        """
 
-        # Markers for reported issues
-        for _, row in df_all.iterrows():
-            folium.CircleMarker(
-                [row["lat"], row["lon"]],
-                radius=4,
-                color=COLOR_MAP.get(row["issue_type"], "black"),
-                fill=True,
-                fill_opacity=0.9,
-            ).add_to(m)
+        folium.Marker(
+            [row["lat"], row["lon"]],
+            popup=popup_html,
+            icon=folium.Icon(color="blue", icon="info-sign"),
+        ).add_to(m)
 
-    st_folium(m, height=650, use_container_width=True)
+    st_folium(m, width=1400, height=650)
 
-    st.caption(
-        f"""
-**City:** Hyderabad  
-**Air pollutant:** {pollutant.upper()} (µg/m³)  
-**Stations used:** {len(aqi_points)}  
-**Min value:** {vmin:.1f} · **Max value:** {vmax:.1f}  
-Citizen issue density and air pollution are visualised together.
-"""
+    # ---------------- SOLUTION PANEL ----------------
+    st.subheader("📌 Latest Report – Recommended Actions")
+
+    primary_solution = generate_solution(
+        latest_row["issue"],
+        latest_row["intensity"],
     )
+
+    additional, authority = generate_detailed_solutions(latest_row["issue"])
+
+    additional_html = "".join([f"<li>{s}</li>" for s in additional])
+
+    html_block = f"""
+    <div style="background:white; padding:20px; border-radius:12px;">
+        <b>Issue:</b> {latest_row["issue"]}<br>
+        <b>Intensity:</b> {latest_row["intensity"]}<br><br>
+
+        <b>Primary action:</b><br>
+        {primary_solution}
+
+        <br><br>
+        <b>Additional actions:</b>
+        <ul>{additional_html}</ul>
+
+        <hr>
+        <b>Responsible Authority:</b><br>
+        {authority["dept"]}<br>
+        📞 {authority["phone"]}<br>
+        📧 {authority["email"]}
+    </div>
+    """
+
+    components.html(html_block, height=300)
