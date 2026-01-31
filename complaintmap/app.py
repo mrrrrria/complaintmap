@@ -24,7 +24,9 @@ from modules import (
     about_page,
 )
 
-# 🔧 CHANGE: Authority mapping for Hyderabad (replaces Lyon context)
+# =========================================================
+# 🔧 CHANGE: Authority contacts for HYDERABAD
+# =========================================================
 AUTHORITY_CONTACTS = {
     "Air quality": {
         "dept": "Telangana Pollution Control Board",
@@ -53,11 +55,87 @@ AUTHORITY_CONTACTS = {
     },
 }
 
+# =========================================================
+# GLOBAL STYLE (GREEN THEME)
+# =========================================================
+def apply_global_style():
+    st.markdown(
+        """
+        <style>
+        [data-testid="stAppViewContainer"] {
+            background-color: #f1ffe8;
+            padding-top: 4.5rem;
+        }
+
+        [data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0);
+        }
+
+        [data-testid="stSidebar"] {
+            background-color: #e1f5dd;
+            border-right: 1px solid #c4e4be;
+            margin-top: 4.5rem !important;
+        }
+
+        .top-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background-color: #d5f5c8;
+            padding: 0.75rem 2rem;
+            border-bottom: 1px solid #b9e6ae;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        }
+
+        .top-banner-title {
+            margin: 0;
+            font-size: 1.6rem;
+        }
+
+        .top-banner-subtitle {
+            margin: 0.1rem 0 0 0;
+            font-size: 0.95rem;
+        }
+
+        .report-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 1rem 1.2rem;
+            border: 1px solid #cfe7c7;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-top: 0.8rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# =========================================================
+# TOP BANNER
+# =========================================================
+def render_banner():
+    st.markdown(
+        """
+        <div class="top-banner">
+            <h1 class="top-banner-title">🌱 Smart Complaint Map</h1>
+            <p class="top-banner-subtitle">
+                A citizen-powered platform for mapping urban issues in Hyderabad
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# =========================================================
+# HOME PAGE (MAP + FORM)
+# =========================================================
 def render_report_home():
     st.subheader("Report an issue on the map")
 
     df_all = load_complaints()
-    clicked = st.session_state.get("clicked_location", None)
+    clicked = st.session_state.get("clicked_location")
 
     center = [DEFAULT_LAT, DEFAULT_LON]
     if not df_all.empty:
@@ -68,20 +146,18 @@ def render_report_home():
     if not df_all.empty:
         cluster = MarkerCluster().add_to(m)
         for _, row in df_all.iterrows():
-            color = COLOR_MAP.get(row["issue_type"], "#5c7cfa")
             folium.CircleMarker(
                 location=[row["lat"], row["lon"]],
                 radius=5,
-                color=color,
+                color=COLOR_MAP.get(row["issue_type"], "#4caf50"),
                 fill=True,
                 fill_opacity=0.8,
                 popup=f"{row['issue_type']} (Intensity {row['intensity']})",
             ).add_to(cluster)
 
-    if clicked is not None:
+    if clicked:
         folium.Marker(
-            location=[clicked["lat"], clicked["lon"]],
-            popup="New issue here",
+            [clicked["lat"], clicked["lon"]],
             icon=folium.Icon(color="green", icon="plus"),
         ).add_to(m)
 
@@ -98,7 +174,11 @@ def render_report_home():
         clicked = st.session_state["clicked_location"]
 
     with right:
-        if clicked:
+        st.markdown('<div class="report-card">', unsafe_allow_html=True)
+
+        if not clicked:
+            st.info("Click a location on the map to report an issue.")
+        else:
             st.markdown("### 📍 Report an issue")
 
             ISSUE_TYPES = [
@@ -111,10 +191,10 @@ def render_report_home():
             ]
 
             issue_type = st.selectbox("Issue type", ISSUE_TYPES)
-            intensity = st.slider("Intensity (1–5)", 1, 5, 3)
+            intensity = st.slider("Intensity (1 = low, 5 = high)", 1, 5, 3)
             description = st.text_area("Description (optional)")
 
-            # 🔧 CHANGE: Show responsible authority (Hyderabad)
+            # 🔧 CHANGE: Show authority info
             authority = AUTHORITY_CONTACTS.get(issue_type)
             if authority:
                 st.markdown("**Responsible authority**")
@@ -122,9 +202,8 @@ def render_report_home():
                 st.write(f"📞 {authority['phone']}")
                 st.write(f"📧 {authority['email']}")
 
-            # 🔧 CHANGE: User consent for email
             send_email = st.checkbox(
-                "📧 Send this complaint to the responsible authority"
+                "📧 Generate email to send this complaint to the authority"
             )
 
             if st.button("✅ Submit report"):
@@ -137,23 +216,24 @@ def render_report_home():
                     None,
                 )
 
-                st.success("Report submitted successfully.")
+                st.success("Thank you! Your report has been submitted.")
 
-                # 🔧 CHANGE: Generate email (user-controlled, ethical)
                 if send_email and authority:
                     subject = f"Citizen complaint – {issue_type} issue in Hyderabad"
                     body = f"""
 Dear Sir/Madam,
 
-I would like to report a {issue_type.lower()} issue at the following location:
+I would like to report a {issue_type.lower()} issue at:
 
 Latitude: {clicked['lat']}
 Longitude: {clicked['lon']}
 Intensity: {intensity}
-Description: {description or "Not provided"}
+
+Description:
+{description or "Not provided"}
 
 This message was generated using a Smart Complaint Map
-as part of an academic project.
+(academic project).
 
 Regards,
 A concerned citizen
@@ -163,13 +243,21 @@ A concerned citizen
                         f"subject={urllib.parse.quote(subject)}&"
                         f"body={urllib.parse.quote(body)}"
                     )
-                    st.markdown(f"[📨 Click here to send email]({mailto})")
+                    st.markdown(f"[📨 Click here to open email]({mailto})")
 
                 st.session_state["clicked_location"] = None
 
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# =========================================================
+# MAIN APP
+# =========================================================
 def main():
     setup()
     init_db()
+
+    apply_global_style()   # ✅ RESTORED
+    render_banner()        # ✅ RESTORED
 
     st.sidebar.markdown("## 🌿 Menu")
 
@@ -183,11 +271,22 @@ def main():
     }
 
     choice = st.sidebar.radio("Go to", list(pages.keys()))
+    page = pages[choice]
 
-    if pages[choice] == "home":
+    if page == "home":
         render_report_home()
-    elif pages[choice] == "about":
-        about_page.render()
+    else:
+        df_all = load_complaints()
+        if page == "map":
+            map_heatmap.render(df_all)
+        elif page == "stats":
+            statistics_page.render(df_all)
+        elif page == "solutions":
+            solutions_page.render(df_all)
+        elif page == "air":
+            air_heatmap_page.render()
+        elif page == "about":
+            about_page.render()
 
 if __name__ == "__main__":
     main()
