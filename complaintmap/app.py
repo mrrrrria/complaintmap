@@ -1,10 +1,10 @@
 import os
 from datetime import datetime
+import requests
 import folium
 from folium.plugins import MarkerCluster
 import streamlit as st
 from streamlit_folium import st_folium
-import requests
 
 # ---------------------------------------------------------
 # PAGE CONFIG (must be first)
@@ -36,22 +36,25 @@ def apply_global_style():
     st.markdown(
         """
         <style>
-        header[data-testid="stHeader"] { visibility: hidden; height: 0; }
+        header[data-testid="stHeader"] {
+            background: transparent;
+            box-shadow: none;
+        }
 
-        [data-testid="stAppViewContainer"] {
-            background-color: #f1ffe8;
-            padding-top: 4.5rem;
+        .block-container {
+            padding-top: 5rem;
         }
 
         [data-testid="stSidebar"] {
             background-color: #e1f5dd;
             border-right: 1px solid #c4e4be;
-            margin-top: 4.5rem !important;
         }
 
         .top-banner {
             position: fixed;
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
             z-index: 1000;
             background-color: #d5f5c8;
             padding: 0.75rem 2rem;
@@ -59,7 +62,7 @@ def apply_global_style():
         }
 
         .report-card {
-            background: white;
+            background-color: white;
             border-radius: 12px;
             padding: 1rem;
             border: 1px solid #cfe7c7;
@@ -87,14 +90,14 @@ def render_banner():
 def render_report_home():
     st.subheader("Report an issue on the map")
 
-    # ---------------- Search ----------------
-    search_query = st.text_input("🔎 Search location (Hyderabad)")
-
-    if "clicked_location" not in st.session_state:
-        st.session_state["clicked_location"] = None
-
+    # ---------- STATE ----------
+    if "location" not in st.session_state:
+        st.session_state["location"] = None
     if "search_results" not in st.session_state:
         st.session_state["search_results"] = []
+
+    # ---------- SEARCH ----------
+    search_query = st.text_input("🔎 Search location (Hyderabad)")
 
     if search_query and len(search_query) >= 3:
         try:
@@ -115,48 +118,46 @@ def render_report_home():
             st.session_state["search_results"] = []
 
     if st.session_state["search_results"]:
-        options = [
-            s["display_name"] for s in st.session_state["search_results"]
-        ]
+        options = [r["display_name"] for r in st.session_state["search_results"]]
         selected = st.selectbox("Select address", options)
 
         if selected:
             idx = options.index(selected)
             loc = st.session_state["search_results"][idx]
-            st.session_state["clicked_location"] = {
+            st.session_state["location"] = {
                 "lat": float(loc["lat"]),
                 "lon": float(loc["lon"]),
             }
             st.session_state["search_results"] = []
 
-    # ---------------- Map ----------------
-    df_all = load_complaints()
-
+    # ---------- MAP CENTER ----------
     center = [DEFAULT_LAT, DEFAULT_LON]
-    if st.session_state["clicked_location"]:
+    if st.session_state["location"]:
         center = [
-            st.session_state["clicked_location"]["lat"],
-            st.session_state["clicked_location"]["lon"],
+            st.session_state["location"]["lat"],
+            st.session_state["location"]["lon"],
         ]
 
+    # ---------- MAP ----------
     m = folium.Map(location=center, zoom_start=DEFAULT_ZOOM)
 
+    df_all = load_complaints()
     if not df_all.empty:
         cluster = MarkerCluster().add_to(m)
         for _, row in df_all.iterrows():
             folium.CircleMarker(
                 [row["lat"], row["lon"]],
                 radius=5,
-                fill=True,
                 color=COLOR_MAP.get(row["issue_type"], "#4caf50"),
+                fill=True,
                 fill_opacity=0.8,
             ).add_to(cluster)
 
-    if st.session_state["clicked_location"]:
+    if st.session_state["location"]:
         folium.Marker(
             [
-                st.session_state["clicked_location"]["lat"],
-                st.session_state["clicked_location"]["lon"],
+                st.session_state["location"]["lat"],
+                st.session_state["location"]["lon"],
             ],
             icon=folium.Icon(color="green", icon="plus"),
         ).add_to(m)
@@ -167,17 +168,17 @@ def render_report_home():
         map_data = st_folium(m, height=600, use_container_width=True)
 
         if map_data and map_data.get("last_clicked"):
-            st.session_state["clicked_location"] = {
+            st.session_state["location"] = {
                 "lat": map_data["last_clicked"]["lat"],
                 "lon": map_data["last_clicked"]["lng"],
             }
 
-    # ---------------- Form ----------------
+    # ---------- FORM ----------
     with col_form:
         st.markdown('<div class="report-card">', unsafe_allow_html=True)
 
-        if not st.session_state["clicked_location"]:
-            st.info("Click on the map or select a location from search.")
+        if not st.session_state["location"]:
+            st.info("Search for a place or click on the map to report an issue.")
         else:
             issue_type = st.selectbox(
                 "Issue type",
@@ -192,7 +193,9 @@ def render_report_home():
             )
             intensity = st.slider("Intensity (1–5)", 1, 5, 3)
             description = st.text_area("Description (optional)")
-            photo = st.file_uploader("Upload a photo (optional)", ["jpg", "png", "jpeg"])
+            photo = st.file_uploader(
+                "Upload a photo (optional)", ["jpg", "jpeg", "png"]
+            )
 
             if st.button("Submit complaint"):
                 photo_path = None
@@ -206,16 +209,17 @@ def render_report_home():
                 add_complaint(
                     issue_type,
                     intensity,
-                    st.session_state["clicked_location"]["lat"],
-                    st.session_state["clicked_location"]["lon"],
+                    st.session_state["location"]["lat"],
+                    st.session_state["location"]["lon"],
                     description,
                     photo_path,
                 )
 
                 st.success("Complaint submitted successfully!")
-                st.session_state["clicked_location"] = None
+                st.session_state["location"] = None
 
         st.markdown("</div>", unsafe_allow_html=True)
+
 # ---------------------------------------------------------
 # MAIN APP
 # ---------------------------------------------------------
