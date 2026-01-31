@@ -272,21 +272,53 @@ def render_report_home():
                 )
 
                 st.success("Complaint submitted successfully!")
+if send_email and authority:
+    timestamp = datetime.now().strftime("%d %B %Y, %H:%M")
 
-                if send_email and authority:
-                    subject = f"Citizen complaint – {issue_type}"
-                    body = f"""
-Location: {st.session_state["clicked_location"]["lat"]}, {st.session_state["clicked_location"]["lon"]}
-Intensity: {intensity}
+    subject = f"Citizen Complaint: {issue_type} issue reported in Hyderabad"
 
-{description or ""}
+    body = f"""
+Dear {authority['dept']},
+
+I am writing to formally report an environmental issue observed in the city of Hyderabad.
+
+Issue type:
+{issue_type}
+
+Location of the issue:
+Latitude: {st.session_state["clicked_location"]["lat"]:.5f}
+Longitude: {st.session_state["clicked_location"]["lon"]:.5f}
+
+Date and time reported:
+{timestamp}
+
+Perceived severity (1 = low, 5 = high):
+{intensity}
+
+Description provided by the citizen:
+{description if description else "No additional description was provided."}
+
+This complaint has been submitted through the Smart Complaint Map platform,
+which aims to help citizens communicate local urban issues clearly to the
+relevant public authorities.
+
+I kindly request your attention and appropriate action regarding this matter.
+
+Thank you for your time and service.
+
+Sincerely,
+A concerned citizen  
+Smart Complaint Map – Hyderabad
 """
-                    mailto = (
-                        f"mailto:{authority['email']}?"
-                        f"subject={urllib.parse.quote(subject)}&"
-                        f"body={urllib.parse.quote(body)}"
-                    )
-                    st.markdown(f"[📨 Click here to send email]({mailto})")
+
+    mailto = (
+        f"mailto:{authority['email']}?"
+        f"subject={urllib.parse.quote(subject)}&"
+        f"body={urllib.parse.quote(body)}"
+    )
+
+    st.markdown("### 📧 Send complaint to authority")
+    st.markdown(f"[Click here to open your email client and send the complaint]({mailto})")
 
                 st.session_state["clicked_location"] = None
 
