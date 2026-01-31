@@ -130,10 +130,13 @@ def render_banner():
 def render_report_home():
     st.subheader("Report an issue on the map")
 
+    # ---------------- Search with suggestions ----------------
+    search_query = st.text_input("🔎 Search address / area (type at least 3 chars)")
+
     if "addr_suggestions" not in st.session_state:
         st.session_state["addr_suggestions"] = []
 
-
+    if search_query and len(search_query) >= 3:
         try:
             r = requests.get(
                 "https://nominatim.openstreetmap.org/search",
