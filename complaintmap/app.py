@@ -1,14 +1,14 @@
 import os
 from datetime import datetime
-import requests
 import folium
 from folium.plugins import MarkerCluster
 import streamlit as st
 from streamlit_folium import st_folium
 import urllib.parse
+import requests
 
 # ---------------------------------------------------------
-# PAGE CONFIG
+# PAGE CONFIG (must be first)
 # ---------------------------------------------------------
 st.set_page_config(layout="wide")
 
@@ -33,34 +33,60 @@ from modules import (
 # ---------------------------------------------------------
 # AUTHORITY CONTACTS (Hyderabad)
 # ---------------------------------------------------------
-AUTHORITY_EMAILS = {
-    "Air quality": "pcb@telangana.gov.in",
-    "Noise": "trafficpolice@hyderabad.gov.in",
-    "Heat": "environment-ghmc@telangana.gov.in",
-    "Cycling / Walking": "planning-ghmc@telangana.gov.in",
-    "Odor": "sanitation-ghmc@telangana.gov.in",
-    "Other": "info.ghmc@telangana.gov.in",
+AUTHORITY_CONTACTS = {
+    "Air quality": {
+        "dept": "Telangana Pollution Control Board",
+        "email": "pcb@telangana.gov.in",
+        "phone": "040-23887500",
+    },
+    "Noise": {
+        "dept": "Hyderabad Traffic Police",
+        "email": "trafficpolice@hyderabad.gov.in",
+        "phone": "100",
+    },
+    "Heat": {
+        "dept": "GHMC – Environment Wing",
+        "email": "environment-ghmc@telangana.gov.in",
+        "phone": "040-21111111",
+    },
+    "Cycling / Walking": {
+        "dept": "GHMC – Urban Planning",
+        "email": "planning-ghmc@telangana.gov.in",
+        "phone": "040-21111111",
+    },
+    "Odor": {
+        "dept": "GHMC – Sanitation",
+        "email": "sanitation-ghmc@telangana.gov.in",
+        "phone": "040-21111111",
+    },
+    "Other": {
+        "dept": "Greater Hyderabad Municipal Corporation",
+        "email": "info.ghmc@telangana.gov.in",
+        "phone": "040-21111111"
+    }
 }
 
 # ---------------------------------------------------------
-# GLOBAL STYLE (GREEN THEME – STABLE)
+# GLOBAL STYLE
 # ---------------------------------------------------------
 def apply_global_style():
     st.markdown(
         """
         <style>
         header[data-testid="stHeader"] {
-            background: transparent;
-            box-shadow: none;
+            height: 0px;
+            visibility: hidden;
         }
 
-        .block-container {
-            padding-top: 5rem;
+        [data-testid="stAppViewContainer"] {
+            background-color: #f1ffe8;
+            padding-top: 4.5rem;
         }
 
         [data-testid="stSidebar"] {
-            background-color: #d8f3dc;
-            border-right: 1px solid #b7e4c7;
+            background-color: #e1f5dd;
+            border-right: 1px solid #c4e4be;
+            margin-top: 4.5rem !important;
         }
 
         .top-banner {
@@ -69,27 +95,18 @@ def apply_global_style():
             left: 0;
             right: 0;
             z-index: 1000;
-            background-color: #95d5b2;
-            padding: 0.8rem 2rem;
-            border-bottom: 1px solid #74c69d;
-        }
-
-        .top-banner h1 {
-            margin: 0;
-            color: #1b4332;
-        }
-
-        .top-banner p {
-            margin: 0;
-            color: #2d6a4f;
+            background-color: #d5f5c8;
+            padding: 0.75rem 2rem;
+            border-bottom: 1px solid #b9e6ae;
         }
 
         .report-card {
-            background-color: white;
+            background-color: #ffffff;
             border-radius: 12px;
-            padding: 1rem;
-            border: 1px solid #b7e4c7;
+            padding: 1rem 1.2rem;
+            border: 1px solid #cfe7c7;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-top: 0.8rem;
         }
         </style>
         """,
@@ -113,95 +130,104 @@ def render_banner():
 def render_report_home():
     st.subheader("Report an issue on the map")
 
-    # ---------- STATE ----------
-    if "location" not in st.session_state:
-        st.session_state["location"] = None
-    if "search_results" not in st.session_state:
-        st.session_state["search_results"] = []
+    # ---------------- Search with suggestions ----------------
+    search_query = st.text_input("🔎 Search address / area (type at least 3 chars)")
 
-    # ---------- SEARCH ----------
-    search_query = st.text_input("🔎 Search location (Hyderabad)")
+    if "addr_suggestions" not in st.session_state:
+        st.session_state["addr_suggestions"] = []
 
     if search_query and len(search_query) >= 3:
         try:
             r = requests.get(
                 "https://nominatim.openstreetmap.org/search",
-                params={
-                    "q": f"{search_query}, Hyderabad",
-                    "format": "json",
-                    "limit": 5,
-                    "countrycodes": "in",
-                },
+                params={"q": search_query, "format": "json", "limit": 5},
                 headers={"User-Agent": "smart-complaint-map"},
                 timeout=5,
             )
             if r.ok:
-                st.session_state["search_results"] = r.json()
+                st.session_state["addr_suggestions"] = r.json()
         except Exception:
-            st.session_state["search_results"] = []
+            st.session_state["addr_suggestions"] = []
 
-    if st.session_state["search_results"]:
-        options = [r["display_name"] for r in st.session_state["search_results"]]
-        selected = st.selectbox("Select address", options)
-
+    if st.session_state["addr_suggestions"]:
+        options = [
+            f"{s['display_name']}" for s in st.session_state["addr_suggestions"]
+        ]
+        selected = st.selectbox("Select suggestion", options)
         if selected:
             idx = options.index(selected)
-            loc = st.session_state["search_results"][idx]
-            st.session_state["location"] = {
+            loc = st.session_state["addr_suggestions"][idx]
+            st.session_state["clicked_location"] = {
                 "lat": float(loc["lat"]),
                 "lon": float(loc["lon"]),
             }
-            st.session_state["search_results"] = []
 
-    # ---------- MAP CENTER ----------
+    # ---------------- Current location ----------------
+    if st.button("📍 Use my current location"):
+        st.markdown(
+            """
+            <script>
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                window.parent.postMessage(
+                  {lat: pos.coords.latitude, lon: pos.coords.longitude},
+                  "*"
+                );
+              }
+            );
+            </script>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # ---------------- Map rendering ----------------
+    df_all = load_complaints()
+    clicked = st.session_state.get("clicked_location")
+
     center = [DEFAULT_LAT, DEFAULT_LON]
-    if st.session_state["location"]:
-        center = [
-            st.session_state["location"]["lat"],
-            st.session_state["location"]["lon"],
-        ]
+    if clicked:
+        center = [clicked["lat"], clicked["lon"]]
 
-    # ---------- MAP ----------
     m = folium.Map(location=center, zoom_start=DEFAULT_ZOOM)
 
-    df_all = load_complaints()
     if not df_all.empty:
         cluster = MarkerCluster().add_to(m)
         for _, row in df_all.iterrows():
             folium.CircleMarker(
                 [row["lat"], row["lon"]],
                 radius=5,
-                color=COLOR_MAP.get(row["issue_type"], "#2d6a4f"),
+                color=COLOR_MAP.get(row["issue_type"], "#4caf50"),
                 fill=True,
                 fill_opacity=0.8,
             ).add_to(cluster)
 
-    if st.session_state["location"]:
+    if clicked:
         folium.Marker(
-            [
-                st.session_state["location"]["lat"],
-                st.session_state["location"]["lon"],
-            ],
+            [clicked["lat"], clicked["lon"]],
             icon=folium.Icon(color="green", icon="plus"),
         ).add_to(m)
 
-    col_map, col_form = st.columns([2.5, 1])
+    left, right = st.columns([2.5, 1])
 
-    with col_map:
-        map_data = st_folium(m, height=600, use_container_width=True)
+    with left:
+        returned = st_folium(
+            m,
+            height=600,
+            use_container_width=True,
+            returned_objects=["last_clicked"],
+        )
 
-        if map_data and map_data.get("last_clicked"):
-            st.session_state["location"] = {
-                "lat": map_data["last_clicked"]["lat"],
-                "lon": map_data["last_clicked"]["lng"],
-            }
+        if returned and returned.get("last_clicked"):
+            lat = returned["last_clicked"]["lat"]
+            lon = returned["last_clicked"]["lng"]
+            st.session_state["clicked_location"] = {"lat": lat, "lon": lon}
 
-    # ---------- FORM ----------
-    with col_form:
+    # ---------------- Complaint form ----------------
+    with right:
         st.markdown('<div class="report-card">', unsafe_allow_html=True)
 
-        if not st.session_state["location"]:
-            st.info("Search for a place or click on the map to report an issue.")
+        if "clicked_location" not in st.session_state:
+            st.info("Click on the map or use search/current location to report an issue.")
         else:
             ISSUE_TYPES = [
                 "Air quality",
@@ -215,48 +241,54 @@ def render_report_home():
             issue_type = st.selectbox("Issue type", ISSUE_TYPES)
             intensity = st.slider("Intensity (1–5)", 1, 5, 3)
             description = st.text_area("Description (optional)")
-            photo = st.file_uploader("Upload a photo (optional)", ["jpg", "jpeg", "png"])
+            photo_file = st.file_uploader("Upload a photo (optional)", ["jpg", "jpeg", "png"])
 
-            send_email = st.checkbox("Send this complaint to authorities")
+            authority = AUTHORITY_CONTACTS.get(issue_type)
+            if authority:
+                st.write(f"🏛️ {authority['dept']}")
+                st.write(f"📞 {authority['phone']}")
+                st.write(f"📧 {authority['email']}")
 
-            if st.button("Submit complaint"):
+            send_email = st.checkbox("Generate email to send this complaint")
+
+            if st.button("✅ Submit"):
                 photo_path = None
-                if photo:
+                if photo_file:
                     os.makedirs(UPLOAD_DIR, exist_ok=True)
-                    fname = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{photo.name}"
-                    photo_path = os.path.join(UPLOAD_DIR, fname)
-                    with open(photo_path, "wb") as f:
-                        f.write(photo.getbuffer())
+                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{ts}_{photo_file.name}"
+                    save_path = os.path.join(UPLOAD_DIR, filename)
+                    with open(save_path, "wb") as f:
+                        f.write(photo_file.getbuffer())
+                    photo_path = save_path
 
                 add_complaint(
                     issue_type,
                     intensity,
-                    st.session_state["location"]["lat"],
-                    st.session_state["location"]["lon"],
+                    st.session_state["clicked_location"]["lat"],
+                    st.session_state["clicked_location"]["lon"],
                     description,
                     photo_path,
                 )
 
                 st.success("Complaint submitted successfully!")
 
-                if send_email:
-                    email = AUTHORITY_EMAILS.get(issue_type, AUTHORITY_EMAILS["Other"])
+                if send_email and authority:
                     subject = f"Citizen complaint – {issue_type}"
                     body = f"""
-Location: {st.session_state["location"]["lat"]}, {st.session_state["location"]["lon"]}
+Location: {st.session_state["clicked_location"]["lat"]}, {st.session_state["clicked_location"]["lon"]}
 Intensity: {intensity}
 
-Description:
-{description or "No description provided."}
+{description or ""}
 """
                     mailto = (
-                        f"mailto:{email}?"
+                        f"mailto:{authority['email']}?"
                         f"subject={urllib.parse.quote(subject)}&"
                         f"body={urllib.parse.quote(body)}"
                     )
-                    st.markdown(f"[📧 Click here to send email to authority]({mailto})")
+                    st.markdown(f"[📨 Click here to send email]({mailto})")
 
-                st.session_state["location"] = None
+                st.session_state["clicked_location"] = None
 
         st.markdown("</div>", unsafe_allow_html=True)
 
