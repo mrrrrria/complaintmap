@@ -12,6 +12,12 @@ import requests
 # ---------------------------------------------------------
 st.set_page_config(layout="wide")
 
+from modules import (
+    solution_heat_map,
+    statistics_page,
+    air_heatmap_page,
+    about_page,
+)
 from config import (
     setup,
     DEFAULT_LAT,
@@ -23,9 +29,8 @@ from config import (
 from db import init_db, load_complaints, add_complaint
 
 from modules import (
-    map_heatmap,
+    solution_heat_map, # <--- New file name (without .py)
     statistics_page,
-    solutions_page,
     air_heatmap_page,
     about_page,
 )
@@ -80,13 +85,30 @@ def apply_global_style():
 
         [data-testid="stAppViewContainer"] {
             background-color: #f1ffe8;
-            padding-top: 4.5rem;
+            /* Reduced from 10rem to 8.5rem to bring content closer to banner */
+            padding-top: 7.5rem; 
         }
 
         [data-testid="stSidebar"] {
             background-color: #e1f5dd;
             border-right: 1px solid #c4e4be;
-            margin-top: 4.5rem !important;
+        }
+
+        /* Shifted upward by reducing padding-top from 10rem to 7.5rem */
+        [data-testid="stSidebarContent"] {
+            padding-top: 6.0rem !important;
+        }
+
+        /* Increase font size for the sidebar radio labels */
+        [data-testid="stWidgetLabel"] p {
+            font-size: 1.4rem !important;
+            font-weight: 600 !important;
+            color: #2e4a2e !important;
+        }
+        
+        /* Increase font size for the radio button options specifically */
+        div[data-testid="stRadio"] label {
+            font-size: 1.4rem !important;
         }
 
         .top-banner {
@@ -94,10 +116,30 @@ def apply_global_style():
             top: 0;
             left: 0;
             right: 0;
-            z-index: 1000;
+            z-index: 999999;
             background-color: #d5f5c8;
             padding: 0.75rem 2rem;
             border-bottom: 1px solid #b9e6ae;
+            height: 10rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .top-banner h1 {
+            margin: 0;
+            padding: 0;
+            line-height: 1.1;
+            font-size: 3.2rem;
+            color: #2e4a2e;
+            font-weight: 800;
+        }
+
+        .top-banner p {st
+            margin: 5px 0 0 0;
+            padding: 0;
+            font-size: 1.2rem;
+            color: #444;
         }
 
         .report-card {
@@ -112,8 +154,6 @@ def apply_global_style():
         """,
         unsafe_allow_html=True,
     )
-
-
 def render_banner():
     st.markdown(
         """
@@ -124,7 +164,6 @@ def render_banner():
         """,
         unsafe_allow_html=True,
     )
-
 
 # ---------------------------------------------------------
 # HOME PAGE
@@ -322,9 +361,8 @@ def main():
 
     pages = {
         "🏠 Report": "home",
-        "Map & Heatmap": "map",
+        "Solutions & Heatmap": "map", #change of name 
         "Statistics": "stats",
-        "Proposed solutions": "solutions",
         "Air heatmap": "air",
         "About": "about",
     }
@@ -337,11 +375,9 @@ def main():
     else:
         df_all = load_complaints()
         if key == "map":
-            map_heatmap.render(df_all)
+            solution_heat_map.render(df_all)
         elif key == "stats":
             statistics_page.render(df_all)
-        elif key == "solutions":
-            solutions_page.render(df_all)
         elif key == "air":
             air_heatmap_page.render()
         elif key == "about":
